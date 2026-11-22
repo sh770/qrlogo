@@ -369,6 +369,9 @@
       },150);
     }
 
+    // ביטול תוצאה קודמת כאשר משנים את הטקסט כדי למנוע הורדה של QR ישן
+    qrText.addEventListener('input',invalidateQr);
+
     // הפעלת יצירה בלחיצה או באמצעות Enter בשדה הטקסט
     generateBtn.addEventListener('click',createQr);
     qrText.addEventListener('keydown',event => { if(event.key === 'Enter') createQr(); });
