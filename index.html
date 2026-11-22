@@ -6,45 +6,57 @@
   <meta name="theme-color" content="#101827">
   <title>מחולל QR עם לוגו</title>
   <style>
-    /* הגדרות עיצוב בסיסיות ומראה כהה */
+    /* הגדרות צבעים ומראה כללי */
     :root{color-scheme:dark;--bg:#0b1220;--panel:#121d2e;--line:#26364d;--text:#f4f7fb;--muted:#a8b5c7;--accent:#5b9cff;--accent2:#3479e8}
     *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -10%,#1d3555 0,transparent 42%),var(--bg);color:var(--text);font-family:Arial,"Segoe UI",sans-serif;padding:28px 16px}
-    .wrap{width:min(100%,960px);margin:auto}
-    header{text-align:center;margin:8px 0 28px}
+    body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -10%,#1d3555 0,transparent 42%),var(--bg);color:var(--text);font-family:Arial,"Segoe UI",sans-serif;padding:26px 14px}
+    .wrap{width:min(100%,900px);margin:auto}
+    header{text-align:center;margin:8px 0 24px}
     .mark{display:inline-grid;place-items:center;width:58px;height:58px;border:1px solid #42618b;border-radius:18px;background:#172943;font-size:29px;margin-bottom:12px}
     h1{font-size:clamp(26px,5vw,38px);margin:0 0 10px}
     header p{color:var(--muted);margin:0;font-size:16px}
-    .layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:18px;align-items:start}
-    .panel{background:rgba(18,29,46,.94);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 18px 50px #0003}
+    /* הצגת כל שדות העריכה מעל אזור התוצאה */
+    .layout{display:grid;grid-template-columns:1fr;gap:18px}
+    .panel{background:rgba(18,29,46,.96);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 18px 50px #0003}
     .field{margin-bottom:18px}
     label{display:block;font-weight:700;margin-bottom:8px}
-    input[type="text"],input[type="url"]{width:100%;padding:14px 15px;border:1px solid #354861;border-radius:12px;background:#0b1524;color:var(--text);font:inherit;outline:none}
+    input[type="text"]{width:100%;padding:14px 15px;border:1px solid #354861;border-radius:12px;background:#0b1524;color:var(--text);font:inherit;outline:none}
     input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #5b9cff22}
     input[type="file"]{width:100%;padding:12px;border:1px dashed #49617e;border-radius:12px;background:#0b1524;color:var(--muted)}
-    .hint{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.5}
+    .hint{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.55}
     .options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .color-field{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#0b1524}
     .color-field input{width:38px;height:32px;padding:0;border:0;background:transparent}
     .color-field span{font-size:13px;color:var(--muted)}
     .range-line{display:flex;align-items:center;gap:12px}
     input[type="range"]{width:100%;accent-color:var(--accent)}
-    .range-value{min-width:42px;text-align:left;color:var(--muted);font-variant-numeric:tabular-nums}
-    button{border:0;border-radius:12px;padding:14px 18px;font:inherit;font-weight:700;cursor:pointer;transition:.18s}
+    .range-value{min-width:48px;text-align:left;color:var(--muted);font-variant-numeric:tabular-nums}
+    button{border:0;border-radius:12px;padding:13px 16px;font:inherit;font-weight:700;cursor:pointer;transition:.18s}
     button:disabled{opacity:.45;cursor:not-allowed}
     .primary{width:100%;color:white;background:linear-gradient(135deg,var(--accent),var(--accent2))}
     .primary:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
-    .download{width:100%;color:#dceaff;background:#203957;border:1px solid #3c5c82;margin-top:12px}
-    .preview{display:flex;flex-direction:column;align-items:center;text-align:center;position:sticky;top:18px}
-    .preview h2{font-size:20px;margin:0 0 6px}
-    .preview p{font-size:13px;color:var(--muted);margin:0 0 18px}
-    .qr-frame{width:min(100%,340px);aspect-ratio:1;background:white;border-radius:16px;padding:14px;display:grid;place-items:center;box-shadow:0 12px 35px #0005}
+    .secondary{color:#dceaff;background:#203957;border:1px solid #3c5c82}
+    .danger{color:#ffdede;background:#512b38;border:1px solid #754252}
+    .editor{margin-top:12px;padding:16px;border:1px solid var(--line);border-radius:15px;background:#0d1727}
+    .editor h3{margin:0 0 14px;font-size:17px}
+    .editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .editor .field{margin:0}
+    .editor-buttons{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+    .editor-buttons button{flex:1}
+    .logo-preview-wrap{display:flex;align-items:center;gap:14px;margin-top:14px}
+    #logoPreview{width:88px;height:88px;object-fit:contain;background:repeating-conic-gradient(#26364d 0% 25%,#172437 0% 50%) 50%/16px 16px;border:1px solid #40536c;border-radius:12px;padding:5px}
+    .preview{display:flex;flex-direction:column;align-items:center;text-align:center}
+    .preview h2{font-size:21px;margin:0 0 6px}
+    .preview>p{font-size:13px;color:var(--muted);margin:0 0 18px}
+    .qr-frame{width:min(100%,430px);aspect-ratio:1;background:white;border-radius:16px;padding:12px;display:grid;place-items:center;box-shadow:0 12px 35px #0005}
     #qrOutput{width:100%;height:100%;display:grid;place-items:center}
     #qrOutput canvas{display:block;width:100%;height:100%;object-fit:contain}
     .empty{color:#6b7788;font-size:14px;line-height:1.7;padding:20px}
     .status{min-height:22px;margin-top:14px;color:#9fc5ff;font-size:13px}
-    .footer{text-align:center;color:#73839a;font-size:12px;margin-top:22px}
-    @media(max-width:760px){body{padding:20px 12px}.layout{grid-template-columns:1fr}.preview{position:static;grid-row:1}.panel{padding:18px}.qr-frame{width:min(78vw,320px)}}
+    .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:min(100%,560px);margin-top:12px}
+    .actions button{width:100%;font-size:14px}
+    .footer{text-align:center;color:#73839a;font-size:12px;margin-top:22px;line-height:1.6}
+    @media(max-width:600px){body{padding:18px 10px}.panel{padding:16px}.editor-grid{grid-template-columns:1fr}.actions{grid-template-columns:1fr}.options{gap:8px}.logo-preview-wrap{align-items:flex-start}}
   </style>
 </head>
 <body>
@@ -52,11 +64,12 @@
     <header>
       <div class="mark" aria-hidden="true">▦</div>
       <h1>מחולל QR עם לוגו</h1>
-      <p>יוצרים קוד QR מעוצב עם הלוגו שלכם במרכז</p>
+      <p>יוצרים קוד QR מעוצב, עורכים את הלוגו ושומרים באיכות גבוהה</p>
     </header>
 
     <section class="layout">
-      <div class="panel">
+      <!-- כל שדות הטקסט והעריכה נמצאים לפני התוצאה הסופית -->
+      <section class="panel" aria-label="הגדרות יצירת קוד QR">
         <div class="field">
           <label for="qrText">קישור או טקסט לקוד QR</label>
           <input id="qrText" type="text" placeholder="https://example.com" autocomplete="url">
@@ -64,82 +77,105 @@
         </div>
 
         <div class="field">
-          <label for="logoFile">לוגו (לא חובה)</label>
+          <label for="logoFile">בחירת לוגו (לא חובה)</label>
           <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
-          <div class="hint">מומלץ להשתמש בלוגו מרובע ובעל רקע שקוף, בפורמט PNG.</div>
+          <div class="hint">מומלץ להשתמש בלוגו חד וברור. אפשר להסיר רקע מתמונה בעלת רקע אחיד.</div>
         </div>
 
-        <div class="field">
-          <label for="logoSize">גודל הלוגו</label>
-          <div class="range-line">
-            <input id="logoSize" type="range" min="10" max="24" value="18">
-            <span class="range-value" id="logoSizeValue">18%</span>
+        <!-- כלי עריכת הלוגו פועלים מקומית בדפדפן -->
+        <div class="editor">
+          <h3>עריכת הלוגו</h3>
+          <div class="editor-grid">
+            <div class="field">
+              <label for="bgTolerance">עוצמת הסרת רקע</label>
+              <div class="range-line"><input id="bgTolerance" type="range" min="10" max="120" value="42"><span class="range-value" id="bgToleranceValue">42</span></div>
+              <div class="hint">מסיר צבעים הדומים לצבע שבפינות התמונה. מתאים בעיקר לרקע אחיד.</div>
+            </div>
+            <div class="field">
+              <label for="brightness">בהירות</label>
+              <div class="range-line"><input id="brightness" type="range" min="50" max="150" value="100"><span class="range-value" id="brightnessValue">100%</span></div>
+            </div>
+            <div class="field">
+              <label for="contrast">ניגודיות</label>
+              <div class="range-line"><input id="contrast" type="range" min="50" max="150" value="100"><span class="range-value" id="contrastValue">100%</span></div>
+            </div>
+            <div class="field">
+              <label for="logoSize">גודל הלוגו בתוך ה-QR</label>
+              <div class="range-line"><input id="logoSize" type="range" min="10" max="24" value="18"><span class="range-value" id="logoSizeValue">18%</span></div>
+            </div>
           </div>
-          <div class="hint">לוגו גדול מדי עלול להקשות על סריקת הקוד. מומלץ להישאר בטווח המוצע.</div>
+          <div class="editor-buttons">
+            <button class="secondary" id="removeBgBtn" type="button">הסר רקע מהלוגו</button>
+            <button class="secondary" id="rotateBtn" type="button">סיבוב 90°</button>
+            <button class="danger" id="resetLogoBtn" type="button">איפוס עריכת לוגו</button>
+          </div>
+          <div class="logo-preview-wrap">
+            <img id="logoPreview" alt="תצוגה מקדימה של הלוגו" hidden>
+            <div class="hint" id="logoHint">לא נבחר לוגו עדיין. לאחר בחירת תמונה יוצגו כאן כלי העריכה.</div>
+          </div>
         </div>
 
-        <div class="field">
+        <div class="field" style="margin-top:18px">
           <label>צבעים</label>
           <div class="options">
-            <div class="color-field">
-              <input id="darkColor" type="color" value="#111827" aria-label="צבע הקוד">
-              <span>צבע הקוד</span>
-            </div>
-            <div class="color-field">
-              <input id="lightColor" type="color" value="#ffffff" aria-label="צבע הרקע">
-              <span>צבע הרקע</span>
-            </div>
+            <div class="color-field"><input id="darkColor" type="color" value="#111827" aria-label="צבע הקוד"><span>צבע הקוד</span></div>
+            <div class="color-field"><input id="lightColor" type="color" value="#ffffff" aria-label="צבע הרקע"><span>צבע הרקע</span></div>
           </div>
         </div>
+        <button class="primary" id="generateBtn" type="button">יצירת קוד QR</button>
+      </section>
 
-        <button class="primary" id="generateBtn">יצירת קוד QR</button>
-      </div>
-
+      <!-- אזור התוצאה ממוקם מתחת לכל שדות הקלט והעריכה -->
       <aside class="panel preview">
-        <h2>תצוגה מקדימה</h2>
-        <p>הקוד שייווצר יופיע כאן</p>
-        <div class="qr-frame">
-          <div id="qrOutput"><div class="empty">הזן טקסט או קישור<br>ולחץ על יצירת קוד QR</div></div>
-        </div>
+        <h2>התוצאה הסופית</h2>
+        <p>כך ייראה קוד ה-QR לאחר היצירה</p>
+        <div class="qr-frame"><div id="qrOutput"><div class="empty">הזן טקסט או קישור<br>ולחץ על יצירת קוד QR</div></div></div>
         <div class="status" id="status" role="status" aria-live="polite"></div>
-        <button class="download" id="downloadBtn" disabled>הורדת QR כקובץ PNG</button>
+        <div class="actions">
+          <button class="secondary" id="downloadBtn" disabled type="button">הורדת PNG רגיל</button>
+          <button class="secondary" id="printBtn" disabled type="button">איכות הדפסה 3000px</button>
+          <button class="secondary" id="shareBtn" disabled type="button">שיתוף QR</button>
+        </div>
+        <div class="hint">קובץ ההדפסה הוא PNG בגודל 3000×3000 פיקסלים, מתאים להדפסה איכותית. מומלץ לבצע סריקה לבדיקה לפני הדפסה בכמות גדולה.</div>
       </aside>
     </section>
-    <div class="footer">היצירה מתבצעת בדפדפן שלך. הלוגו והטקסט אינם מועלים לשרת.</div>
+    <div class="footer">הטקסט, התמונה והעריכה מתבצעים בדפדפן שלך. הקבצים אינם מועלים לשרת.<br>הסרת רקע אוטומטית עובדת בצורה הטובה ביותר כאשר הרקע המקורי אחיד.</div>
   </main>
 
   <!-- ספריית QRCode.js יוצרת את קוד ה-QR בדפדפן -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
-    // שמירת תמונת הלוגו שנבחרה בזיכרון הדף בלבד
-    let logoImage = null;
-    // שמירת הקנבס הסופי שממנו יורד קובץ ה-PNG
+    // שמירת תמונת הלוגו המקורית והגרסה הערוכה בזיכרון הדף
+    let originalLogo = null;
+    let editedLogo = null;
+    // שמירת קנבס ה-QR באיכות הדפסה
     let finalCanvas = null;
+    // שמירת זווית הסיבוב של הלוגו
+    let rotation = 0;
+    // שמירת מצב הסרת הרקע
+    let backgroundRemoved = false;
 
-    // קבלת רכיבי הממשק לפי המזהים שלהם
-    const qrText = document.getElementById('qrText');
-    const logoFile = document.getElementById('logoFile');
-    const logoSize = document.getElementById('logoSize');
-    const logoSizeValue = document.getElementById('logoSizeValue');
-    const darkColor = document.getElementById('darkColor');
-    const lightColor = document.getElementById('lightColor');
-    const qrOutput = document.getElementById('qrOutput');
-    const statusBox = document.getElementById('status');
-    const generateBtn = document.getElementById('generateBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
+    // איתור רכיבי הממשק
+    const el = id => document.getElementById(id);
+    const qrText = el('qrText');
+    const logoFile = el('logoFile');
+    const qrOutput = el('qrOutput');
+    const statusBox = el('status');
+    const generateBtn = el('generateBtn');
+    const downloadBtn = el('downloadBtn');
+    const printBtn = el('printBtn');
+    const shareBtn = el('shareBtn');
+    const logoPreview = el('logoPreview');
 
-    // עדכון אחוז גודל הלוגו בזמן גרירת המחוון
-    logoSize.addEventListener('input', () => {
-      logoSizeValue.textContent = logoSize.value + '%';
+    // עדכון תוויות המחוונים בזמן שינוי
+    [['bgTolerance','bgToleranceValue',''],['brightness','brightnessValue','%'],['contrast','contrastValue','%'],['logoSize','logoSizeValue','%']].forEach(([input,label,suffix]) => {
+      el(input).addEventListener('input', () => { el(label).textContent = el(input).value + suffix; });
     });
 
-    // טעינת הלוגו שנבחר והצגתו רק בתוך הדפדפן
+    // טעינת קובץ הלוגו שנבחר
     logoFile.addEventListener('change', () => {
       const file = logoFile.files && logoFile.files[0];
-      if (!file) {
-        logoImage = null;
-        return;
-      }
+      if (!file) return;
       if (!file.type.startsWith('image/')) {
         statusBox.textContent = 'יש לבחור קובץ תמונה תקין.';
         logoFile.value = '';
@@ -149,135 +185,239 @@
       reader.onload = () => {
         const image = new Image();
         image.onload = () => {
-          logoImage = image;
-          statusBox.textContent = 'הלוגו נטען. אפשר ליצור את קוד ה-QR.';
+          originalLogo = image;
+          rotation = 0;
+          backgroundRemoved = false;
+          refreshLogoPreview();
+          statusBox.textContent = 'הלוגו נטען. אפשר לערוך אותו וליצור QR.';
         };
-        image.onerror = () => {
-          logoImage = null;
-          statusBox.textContent = 'לא ניתן לטעון את קובץ הלוגו.';
-        };
+        image.onerror = () => { statusBox.textContent = 'לא ניתן לטעון את קובץ הלוגו.'; };
         image.src = reader.result;
       };
       reader.readAsDataURL(file);
     });
 
-    // יצירת הקוד ברמת תיקון שגיאות גבוהה כדי לאפשר שילוב לוגו במרכז
+    // יצירת תמונה ערוכה לפי הגדרות המשתמש
+    function buildEditedLogo() {
+      if (!originalLogo) return null;
+      const source = document.createElement('canvas');
+      const maxSide = 1400;
+      const scale = Math.min(1, maxSide / Math.max(originalLogo.width, originalLogo.height));
+      const width = Math.max(1, Math.round(originalLogo.width * scale));
+      const height = Math.max(1, Math.round(originalLogo.height * scale));
+      source.width = width;
+      source.height = height;
+      const sourceContext = source.getContext('2d', {willReadFrequently:true});
+      sourceContext.drawImage(originalLogo, 0, 0, width, height);
+
+      // הסרת רקע לפי צבע ממוצע מארבע פינות התמונה
+      if (backgroundRemoved) {
+        const imageData = sourceContext.getImageData(0, 0, width, height);
+        const pixels = imageData.data;
+        const corners = [[0,0],[width-1,0],[0,height-1],[width-1,height-1]];
+        let red = 0, green = 0, blue = 0;
+        corners.forEach(([x,y]) => {
+          const index = (y * width + x) * 4;
+          red += pixels[index]; green += pixels[index+1]; blue += pixels[index+2];
+        });
+        red /= 4; green /= 4; blue /= 4;
+        const tolerance = Number(el('bgTolerance').value);
+        // שקיפות מדורגת מונעת קצוות חדים ככל האפשר
+        for (let i = 0; i < pixels.length; i += 4) {
+          const distance = Math.sqrt((pixels[i]-red)**2 + (pixels[i+1]-green)**2 + (pixels[i+2]-blue)**2);
+          if (distance < tolerance * 0.72) pixels[i+3] = 0;
+          else if (distance < tolerance) pixels[i+3] = Math.round(pixels[i+3] * (distance - tolerance * 0.72) / (tolerance * 0.28));
+        }
+        sourceContext.putImageData(imageData, 0, 0);
+      }
+
+      // החלת בהירות וניגודיות על התמונה הערוכה
+      const adjusted = document.createElement('canvas');
+      const swap = rotation % 180 !== 0;
+      adjusted.width = swap ? height : width;
+      adjusted.height = swap ? width : height;
+      const context = adjusted.getContext('2d');
+      context.translate(adjusted.width/2, adjusted.height/2);
+      context.rotate(rotation * Math.PI / 180);
+      context.filter = 'brightness(' + el('brightness').value + '%) contrast(' + el('contrast').value + '%)';
+      context.drawImage(source, -width/2, -height/2);
+      context.filter = 'none';
+      return adjusted;
+    }
+
+    // רענון תצוגת הלוגו הערוך
+    function refreshLogoPreview() {
+      if (!originalLogo) {
+        logoPreview.hidden = true;
+        el('logoHint').textContent = 'לא נבחר לוגו עדיין. לאחר בחירת תמונה יוצגו כאן כלי העריכה.';
+        editedLogo = null;
+        return;
+      }
+      editedLogo = buildEditedLogo();
+      logoPreview.src = editedLogo.toDataURL('image/png');
+      logoPreview.hidden = false;
+      el('logoHint').textContent = 'תצוגה מקדימה של הלוגו לאחר העריכה.';
+      invalidateQr();
+    }
+
+    // סימון שהתוצאה הקודמת אינה עדכנית לאחר שינוי הגדרות
+    function invalidateQr() {
+      if (finalCanvas) {
+        finalCanvas = null;
+        downloadBtn.disabled = true;
+        printBtn.disabled = true;
+        shareBtn.disabled = true;
+        statusBox.textContent = 'ההגדרות השתנו. יש ליצור מחדש את קוד ה-QR.';
+      }
+    }
+
+    // הפעלת הסרת הרקע ועדכון התצוגה
+    el('removeBgBtn').addEventListener('click', () => {
+      if (!originalLogo) { statusBox.textContent = 'יש לבחור לוגו לפני הסרת הרקע.'; return; }
+      backgroundRemoved = true;
+      refreshLogoPreview();
+      statusBox.textContent = 'בוצעה הסרת רקע. ניתן לכוון את העוצמה במחוון.';
+    });
+
+    // סיבוב הלוגו בכל לחיצה ברבע סיבוב
+    el('rotateBtn').addEventListener('click', () => {
+      if (!originalLogo) { statusBox.textContent = 'יש לבחור לוגו לפני הסיבוב.'; return; }
+      rotation = (rotation + 90) % 360;
+      refreshLogoPreview();
+    });
+
+    // איפוס כל פעולות העריכה וחזרה לתמונה המקורית
+    el('resetLogoBtn').addEventListener('click', () => {
+      if (!originalLogo) return;
+      rotation = 0;
+      backgroundRemoved = false;
+      el('brightness').value = 100;
+      el('contrast').value = 100;
+      el('bgTolerance').value = 42;
+      el('brightnessValue').textContent = '100%';
+      el('contrastValue').textContent = '100%';
+      el('bgToleranceValue').textContent = '42';
+      refreshLogoPreview();
+    });
+
+    // רענון תצוגת הלוגו בעת שינוי בהירות, ניגודיות או עוצמת הסרת הרקע
+    ['brightness','contrast','bgTolerance'].forEach(id => {
+      el(id).addEventListener('input', () => { if (originalLogo) refreshLogoPreview(); });
+    });
+
+    // יצירת QR ברמת תיקון שגיאות גבוהה וברזולוציית הדפסה
     function createQr() {
       const value = qrText.value.trim();
-      if (!value) {
-        statusBox.textContent = 'נא להזין קישור או טקסט.';
-        qrText.focus();
-        return;
-      }
-      if (typeof QRCode === 'undefined') {
-        statusBox.textContent = 'לא ניתן לטעון את ספריית יצירת ה-QR. בדוק את החיבור לאינטרנט.';
-        return;
-      }
-
-      // יצירת QR זמני בגודל גבוה לצורך הורדה חדה ואיכותית
-      qrOutput.innerHTML = '';
+      if (!value) { statusBox.textContent = 'נא להזין קישור או טקסט.'; qrText.focus(); return; }
+      if (typeof QRCode === 'undefined') { statusBox.textContent = 'ספריית יצירת ה-QR לא נטענה. בדוק את החיבור לאינטרנט.'; return; }
+      generateBtn.disabled = true;
+      statusBox.textContent = 'יוצר קוד QR באיכות גבוהה...';
       finalCanvas = null;
-      downloadBtn.disabled = true;
+      downloadBtn.disabled = true; printBtn.disabled = true; shareBtn.disabled = true;
+      qrOutput.innerHTML = '';
+      const size = 3000;
       const temporary = document.createElement('div');
-      temporary.style.cssText = 'position:absolute;left:-99999px;top:0;width:800px;height:800px';
+      temporary.style.cssText = 'position:fixed;left:-10000px;top:0;width:'+size+'px;height:'+size+'px';
       document.body.appendChild(temporary);
-
       try {
-        new QRCode(temporary, {
-          text: value,
-          width: 800,
-          height: 800,
-          colorDark: darkColor.value,
-          colorLight: lightColor.value,
-          correctLevel: QRCode.CorrectLevel.H
-        });
+        new QRCode(temporary, {text:value,width:size,height:size,colorDark:el('darkColor').value,colorLight:el('lightColor').value,correctLevel:QRCode.CorrectLevel.H});
       } catch (error) {
-        temporary.remove();
-        statusBox.textContent = 'לא ניתן ליצור QR. נסה להזין טקסט קצר יותר.';
-        return;
+        temporary.remove(); generateBtn.disabled = false; statusBox.textContent = 'לא ניתן ליצור QR. נסה טקסט קצר יותר.'; return;
       }
 
-      // המתנה לציור הקוד ואז שילוב הלוגו במרכזו
+      // המתנה לציור הקוד בספרייה לפני שילוב הלוגו
       setTimeout(() => {
         const sourceCanvas = temporary.querySelector('canvas');
         if (!sourceCanvas) {
-          temporary.remove();
-          statusBox.textContent = 'יצירת קוד ה-QR נכשלה.';
-          return;
+          temporary.remove(); generateBtn.disabled = false; statusBox.textContent = 'יצירת קוד ה-QR נכשלה.'; return;
         }
-
-        // העתקת הקוד לקנבס הסופי
         const canvas = document.createElement('canvas');
-        canvas.width = 800;
-        canvas.height = 800;
+        canvas.width = size; canvas.height = size;
         const context = canvas.getContext('2d');
-        context.fillStyle = lightColor.value;
-        context.fillRect(0, 0, 800, 800);
-        context.drawImage(sourceCanvas, 0, 0, 800, 800);
+        context.fillStyle = el('lightColor').value;
+        context.fillRect(0,0,size,size);
+        context.drawImage(sourceCanvas,0,0,size,size);
 
-        // ציור רקע לבן מעוגל מאחורי הלוגו כדי לשמור על ניגודיות
-        if (logoImage) {
-          const logoWidth = 800 * Number(logoSize.value) / 100;
+        // שילוב הלוגו במרכז על גבי משטח לבן מעוגל
+        if (originalLogo) {
+          const logo = buildEditedLogo();
+          const logoWidth = size * Number(el('logoSize').value) / 100;
           const padding = Math.round(logoWidth * 0.13);
           const boxSize = logoWidth + padding * 2;
-          const x = (800 - boxSize) / 2;
-          const y = (800 - boxSize) / 2;
-          const radius = Math.round(boxSize * 0.12);
-
+          const x = (size-boxSize)/2;
+          const y = (size-boxSize)/2;
           context.fillStyle = '#ffffff';
           context.beginPath();
-          context.roundRect(x, y, boxSize, boxSize, radius);
+          context.roundRect(x,y,boxSize,boxSize,boxSize*0.12);
           context.fill();
-
-          // התאמת הלוגו לריבוע תוך שמירה על יחס הממדים המקורי
-          const innerSize = logoWidth;
-          const scale = Math.min(innerSize / logoImage.width, innerSize / logoImage.height);
-          const drawWidth = logoImage.width * scale;
-          const drawHeight = logoImage.height * scale;
-          context.drawImage(
-            logoImage,
-            (800 - drawWidth) / 2,
-            (800 - drawHeight) / 2,
-            drawWidth,
-            drawHeight
-          );
+          const scale = Math.min(logoWidth/logo.width,logoWidth/logo.height);
+          const drawWidth = logo.width*scale;
+          const drawHeight = logo.height*scale;
+          context.drawImage(logo,(size-drawWidth)/2,(size-drawHeight)/2,drawWidth,drawHeight);
         }
 
-        // הצגת הקוד המוגמר והפעלת אפשרות ההורדה
+        // שמירת התוצאה ברזולוציית 3000 פיקסלים והצגת תצוגה מוקטנת
         finalCanvas = canvas;
-        const previewCanvas = document.createElement('canvas');
-        previewCanvas.width = 800;
-        previewCanvas.height = 800;
-        previewCanvas.getContext('2d').drawImage(canvas, 0, 0);
-        qrOutput.appendChild(previewCanvas);
+        const preview = document.createElement('canvas');
+        preview.width = 900; preview.height = 900;
+        preview.getContext('2d').drawImage(canvas,0,0,900,900);
+        qrOutput.appendChild(preview);
         temporary.remove();
-        downloadBtn.disabled = false;
-        statusBox.textContent = logoImage ? 'הקוד נוצר בהצלחה עם הלוגו.' : 'הקוד נוצר בהצלחה.';
-      }, 100);
+        generateBtn.disabled = false;
+        downloadBtn.disabled = false; printBtn.disabled = false; shareBtn.disabled = false;
+        statusBox.textContent = 'הקוד נוצר בהצלחה. מומלץ לסרוק אותו לפני שימוש או הדפסה.';
+      },150);
     }
 
-    // הפעלת יצירת הקוד בלחיצה על הכפתור
-    generateBtn.addEventListener('click', createQr);
+    // הפעלת יצירה בלחיצה או באמצעות Enter בשדה הטקסט
+    generateBtn.addEventListener('click',createQr);
+    qrText.addEventListener('keydown',event => { if(event.key === 'Enter') createQr(); });
 
-    // הפעלת יצירה גם בלחיצה על Enter בשדה הטקסט
-    qrText.addEventListener('keydown', event => {
-      if (event.key === 'Enter') createQr();
-    });
-
-    // הורדת הקוד הסופי כתמונה בפורמט PNG
-    downloadBtn.addEventListener('click', () => {
-      if (!finalCanvas) return;
+    // יצירת קישור הורדה לתמונה ברזולוציה המבוקשת
+    function downloadCanvas(canvas,filename) {
       const link = document.createElement('a');
-      link.download = 'qr-with-logo.png';
-      link.href = finalCanvas.toDataURL('image/png');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
       link.click();
+    }
+
+    // הורדת קובץ PNG רגיל בגודל 1000 פיקסלים
+    downloadBtn.addEventListener('click',() => {
+      if (!finalCanvas) return;
+      const normal = document.createElement('canvas');
+      normal.width = 1000; normal.height = 1000;
+      normal.getContext('2d').drawImage(finalCanvas,0,0,1000,1000);
+      downloadCanvas(normal,'qr-logo.png');
     });
 
-    // יצירה מחדש כאשר משנים את הצבעים לאחר שכבר נוצר קוד
-    [darkColor, lightColor, logoSize].forEach(control => {
-      control.addEventListener('change', () => {
-        if (qrText.value.trim()) createQr();
-      });
+    // הורדת קובץ PNG מלא בגודל 3000 על 3000 פיקסלים להדפסה
+    printBtn.addEventListener('click',() => {
+      if (finalCanvas) downloadCanvas(finalCanvas,'qr-logo-print-3000px.png');
+    });
+
+    // שיתוף התמונה דרך מנגנון השיתוף המובנה במכשיר או בדפדפן
+    shareBtn.addEventListener('click',async () => {
+      if (!finalCanvas) return;
+      try {
+        const blob = await new Promise(resolve => finalCanvas.toBlob(resolve,'image/png'));
+        if (!blob) throw new Error('לא ניתן להכין קובץ לשיתוף');
+        const file = new File([blob],'qr-logo.png',{type:'image/png'});
+        if (navigator.canShare && navigator.canShare({files:[file]})) {
+          await navigator.share({files:[file],title:'קוד QR'});
+        } else if (navigator.share) {
+          await navigator.share({title:'קוד QR',text:qrText.value.trim()});
+        } else {
+          downloadCanvas(finalCanvas,'qr-logo.png');
+          statusBox.textContent = 'השיתוף אינו נתמך בדפדפן. התמונה הורדה כדי שתוכל לצרף אותה לשיתוף.';
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') statusBox.textContent = 'לא ניתן לשתף ישירות. אפשר להוריד את התמונה ולשתף אותה ידנית.';
+      }
+    });
+
+    // יצירה מחדש לאחר שינוי צבעים או גודל הלוגו
+    ['darkColor','lightColor','logoSize'].forEach(id => {
+      el(id).addEventListener('change',() => { if(qrText.value.trim()) createQr(); });
     });
   </script>
 </body>
