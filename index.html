@@ -28,6 +28,7 @@
     .color-field{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#0b1524}
     .color-field input{width:38px;height:32px;padding:0;border:0;background:transparent}
     .color-field span{font-size:13px;color:var(--muted)}
+    select{width:100%;padding:13px 14px;border:1px solid #354861;border-radius:12px;background:#0b1524;color:var(--text);font:inherit;outline:none}
     .range-line{display:flex;align-items:center;gap:12px}
     input[type="range"]{width:100%;accent-color:var(--accent)}
     .range-value{min-width:48px;text-align:left;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -122,6 +123,19 @@
             <div class="color-field"><input id="lightColor" type="color" value="#ffffff" aria-label="צבע הרקע"><span>צבע הרקע</span></div>
           </div>
         </div>
+        <!-- בחירת רזולוציית הקובץ שיורד למכשיר -->
+        <div class="field">
+          <label for="exportSize">איכות / רזולוציית קובץ ההורדה</label>
+          <select id="exportSize">
+            <option value="500">500 × 500 — קטן ומהיר לשיתוף</option>
+            <option value="800">800 × 800 — שימוש רגיל</option>
+            <option value="1200" selected>1200 × 1200 — איכות גבוהה</option>
+            <option value="2000">2000 × 2000 — איכות גבוהה מאוד</option>
+            <option value="3000">3000 × 3000 — הדפסה</option>
+            <option value="4000">4000 × 4000 — הדפסה באיכות מרבית</option>
+          </select>
+          <div class="hint" id="exportHint">הקובץ יורד כ-PNG ברזולוציה שנבחרה. PNG הוא פורמט ללא איבוד איכות.</div>
+        </div>
         <button class="primary" id="generateBtn" type="button">יצירת קוד QR</button>
       </section>
 
@@ -132,11 +146,11 @@
         <div class="qr-frame"><div id="qrOutput"><div class="empty">הזן טקסט או קישור<br>ולחץ על יצירת קוד QR</div></div></div>
         <div class="status" id="status" role="status" aria-live="polite"></div>
         <div class="actions">
-          <button class="secondary" id="downloadBtn" disabled type="button">הורדת PNG רגיל</button>
-          <button class="secondary" id="printBtn" disabled type="button">איכות הדפסה 3000px</button>
+          <button class="secondary" id="downloadBtn" disabled type="button">הורדת PNG באיכות שנבחרה</button>
+          <button class="secondary" id="printBtn" disabled type="button">הורדת PNG להדפסה</button>
           <button class="secondary" id="shareBtn" disabled type="button">שיתוף QR</button>
         </div>
-        <div class="hint">קובץ ההדפסה הוא PNG בגודל 3000×3000 פיקסלים, מתאים להדפסה איכותית. מומלץ לבצע סריקה לבדיקה לפני הדפסה בכמות גדולה.</div>
+        <div class="hint">כפתור ההורדה הראשון משתמש ברזולוציה שבחרת. כפתור ההדפסה מוריד תמיד קובץ 3000×3000 פיקסלים. מומלץ לסרוק את הקוד לפני הדפסה.</div>
       </aside>
     </section>
     <div class="footer">הטקסט, התמונה והעריכה מתבצעים בדפדפן שלך. הקבצים אינם מועלים לשרת.<br>הסרת רקע אוטומטית עובדת בצורה הטובה ביותר כאשר הרקע המקורי אחיד.</div>
@@ -166,6 +180,7 @@
     const printBtn = el('printBtn');
     const shareBtn = el('shareBtn');
     const logoPreview = el('logoPreview');
+    const exportSize = el('exportSize');
 
     // עדכון תוויות המחוונים בזמן שינוי
     [['bgTolerance','bgToleranceValue',''],['brightness','brightnessValue','%'],['contrast','contrastValue','%'],['logoSize','logoSizeValue','%']].forEach(([input,label,suffix]) => {
@@ -315,7 +330,8 @@
       finalCanvas = null;
       downloadBtn.disabled = true; printBtn.disabled = true; shareBtn.disabled = true;
       qrOutput.innerHTML = '';
-      const size = 3000;
+      // יצירת מקור ברזולוציה המרבית כדי לאפשר הורדה בכמה גדלים
+      const size = 4000;
       const temporary = document.createElement('div');
       temporary.style.cssText = 'position:fixed;left:-10000px;top:0;width:'+size+'px;height:'+size+'px';
       document.body.appendChild(temporary);
@@ -384,25 +400,36 @@
       link.click();
     }
 
-    // הורדת קובץ PNG רגיל בגודל 1000 פיקסלים
+    // יצירת תמונת PNG בגודל שנבחר מתוך מקור ה-QR האיכותי
+    function makeExportCanvas(size) {
+      const output = document.createElement('canvas');
+      output.width = size;
+      output.height = size;
+      const context = output.getContext('2d');
+      context.imageSmoothingEnabled = false;
+      context.drawImage(finalCanvas,0,0,size,size);
+      return output;
+    }
+
+    // הורדת PNG ברזולוציה שהמשתמש בחר בתפריט
     downloadBtn.addEventListener('click',() => {
       if (!finalCanvas) return;
-      const normal = document.createElement('canvas');
-      normal.width = 1000; normal.height = 1000;
-      normal.getContext('2d').drawImage(finalCanvas,0,0,1000,1000);
-      downloadCanvas(normal,'qr-logo.png');
+      const size = Number(exportSize.value);
+      downloadCanvas(makeExportCanvas(size),'qr-logo-'+size+'px.png');
     });
 
-    // הורדת קובץ PNG מלא בגודל 3000 על 3000 פיקסלים להדפסה
+    // הורדת קובץ PNG קבוע בגודל 3000 על 3000 פיקסלים להדפסה
     printBtn.addEventListener('click',() => {
-      if (finalCanvas) downloadCanvas(finalCanvas,'qr-logo-print-3000px.png');
+      if (finalCanvas) downloadCanvas(makeExportCanvas(3000),'qr-logo-print-3000px.png');
     });
 
     // שיתוף התמונה דרך מנגנון השיתוף המובנה במכשיר או בדפדפן
     shareBtn.addEventListener('click',async () => {
       if (!finalCanvas) return;
       try {
-        const blob = await new Promise(resolve => finalCanvas.toBlob(resolve,'image/png'));
+        // השיתוף משתמש באותה רזולוציה שנבחרה להורדה
+        const selectedCanvas = makeExportCanvas(Number(exportSize.value));
+        const blob = await new Promise(resolve => selectedCanvas.toBlob(resolve,'image/png'));
         if (!blob) throw new Error('לא ניתן להכין קובץ לשיתוף');
         const file = new File([blob],'qr-logo.png',{type:'image/png'});
         if (navigator.canShare && navigator.canShare({files:[file]})) {
