@@ -752,7 +752,7 @@
     function collectProjectData() {
       const settings = {};
       projectFieldIds.forEach(id => { settings[id] = el(id).value; });
-      return {settings,logoDataUrl};
+      return {settings,logoDataUrl,editorState:getEditorState()};
     }
 
     // שמירת פרויקט חדש או עדכון פרויקט בעל אותו שם
@@ -809,6 +809,7 @@
         const image = new Image();
         image.onload = () => {
           originalLogo = image;
+          if (project.data.editorState) restoreEditorState(project.data.editorState);
           refreshLogoPreview();
           el('cropBtn').disabled = false;
           statusBox.textContent = 'הפרויקט נטען. אפשר להמשיך לערוך וליצור QR.';
