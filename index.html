@@ -144,7 +144,7 @@
             </div>
             <div class="field">
               <label for="logoBorder">מסגרת ללוגו</label>
-              <select id="logoBorder"><option value="0">ללא מסגרת</option><option value="4">דקה</option><option value="10">בינונית</option><option value="18">עבה</option></select>
+              <select id="logoBorder"><option value="0">ללא מסגרת</option><option value="2">דקה</option><option value="4">בינונית</option><option value="7">עבה</option></select>
             </div>
             <div class="field">
               <label for="logoBorderColor">צבע המסגרת</label>
@@ -392,6 +392,7 @@
     function refreshLogoPreview() {
       if (!originalLogo) {
         logoPreview.hidden = true;
+        el('logoStylePreview').hidden = true;
         el('logoHint').textContent = 'לא נבחר לוגו עדיין. לאחר בחירת תמונה יוצגו כאן כלי העריכה.';
         editedLogo = null;
         return;
@@ -402,6 +403,10 @@
       el('logoStylePreview').src = editedLogo.toDataURL('image/png');
       el('logoStylePreview').hidden = false;
       el('logoStylePreview').style.opacity = Number(el('logoOpacity').value)/100;
+      // המחשת צורת הלוגו והמסגרת גם בתצוגה המקדימה הקטנה
+      const previewShape = el('logoShape').value;
+      el('logoStylePreview').style.borderRadius = previewShape === 'circle' ? '50%' : previewShape === 'rounded' ? '12px' : '0';
+      el('logoStylePreview').style.border = Number(el('logoBorder').value) ? (Number(el('logoBorder').value)/100*52)+'px solid '+el('logoBorderColor').value : '0';
       el('logoHint').textContent = 'תצוגה מקדימה של הלוגו לאחר העריכה.';
       invalidateQr();
     }
@@ -631,7 +636,7 @@
           const y = (size-boxSize)/2;
           // ציור רקע הלוגו בהתאם לצורה ולמסגרת שהמשתמש בחר
           const shape = el('logoShape').value;
-          const border = Number(el('logoBorder').value);
+          const border = boxSize * Number(el('logoBorder').value) / 100;
           const borderColor = el('logoBorderColor').value;
           context.save();
           context.fillStyle = borderColor;
