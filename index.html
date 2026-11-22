@@ -639,7 +639,7 @@
           const border = boxSize * Number(el('logoBorder').value) / 100;
           const borderColor = el('logoBorderColor').value;
           context.save();
-          context.fillStyle = borderColor;
+          context.fillStyle = border > 0 ? borderColor : '#ffffff';
           context.beginPath();
           if (shape === 'circle') context.arc(size/2,size/2,boxSize/2,0,Math.PI*2);
           else if (shape === 'square') context.rect(x,y,boxSize,boxSize);
