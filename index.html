@@ -1158,33 +1158,52 @@
       }
     });
 
-    // בדיקת סריקה אוטומטית מול הטקסט המקורי באמצעות מנוע הדפדפן
+    // בדיקת סריקה על עותק מוקטן כדי למנוע עומס זיכרון על תמונת המקור הגדולה
     scanCheckBtn.addEventListener('click',async () => {
-      if (!finalCanvas) return;
+      if (!finalCanvas) {
+        statusBox.textContent = 'אין קוד QR לבדיקה. צור תחילה קוד חדש.';
+        return;
+      }
       scanCheckBtn.disabled = true;
-      statusBox.textContent = 'בודק אם הדפדפן מצליח לזהות את קוד ה-QR...';
+      statusBox.textContent = 'בודק את קוד ה-QR... הקוד עצמו נשאר מוצג.';
       try {
         if (!('BarcodeDetector' in window)) {
-          statusBox.textContent = 'הדפדפן אינו תומך בבדיקת סריקה אוטומטית. מומלץ לסרוק עם מצלמת טלפון.';
+          statusBox.textContent = 'הדפדפן אינו תומך בבדיקת סריקה אוטומטית. קוד ה-QR נשאר מוצג; אפשר לסרוק אותו במצלמת הטלפון.';
           return;
         }
+
+        // יצירת עותק בדיקה קטן במקום להעביר למנוע הסריקה קנבס של 4000 פיקסלים
+        const scanCanvas = document.createElement('canvas');
+        const scanSize = 1000;
+        scanCanvas.width = scanSize;
+        scanCanvas.height = scanSize;
+        const scanContext = scanCanvas.getContext('2d',{willReadFrequently:true});
+        if (!scanContext) throw new Error('לא ניתן ליצור משטח בדיקה');
+        scanContext.fillStyle = el('lightColor').value || '#ffffff';
+        scanContext.fillRect(0,0,scanSize,scanSize);
+        scanContext.imageSmoothingEnabled = true;
+        scanContext.imageSmoothingQuality = 'high';
+        scanContext.drawImage(finalCanvas,0,0,scanSize,scanSize);
+
         const supported = await BarcodeDetector.getSupportedFormats();
         if (!supported.includes('qr_code')) {
-          statusBox.textContent = 'מנוע הסריקה בדפדפן אינו תומך בקודי QR. מומלץ לבדוק עם מצלמת טלפון.';
+          statusBox.textContent = 'מנוע הסריקה בדפדפן אינו תומך בקודי QR. הקוד נשאר מוצג; מומלץ לסרוק במצלמת הטלפון.';
           return;
         }
+
+        // הפעלת הסריקה על העותק בלבד, בלי לשנות את התוצאה המוצגת או את קובץ המקור
         const detector = new BarcodeDetector({formats:['qr_code']});
-        const results = await detector.detect(finalCanvas);
+        const results = await detector.detect(scanCanvas);
         const expected = qrText.value.trim();
         if (results.some(result => result.rawValue === expected)) {
           statusBox.textContent = 'מצוין! הקוד נסרק בהצלחה והתוכן תואם בדיוק לקלט.';
         } else if (results.length) {
-          statusBox.textContent = 'קוד QR זוהה, אך התוכן אינו תואם לקלט. מומלץ ליצור מחדש ולבדוק.';
+          statusBox.textContent = 'קוד QR זוהה, אך התוכן שנסרק אינו תואם לקלט. מומלץ ליצור מחדש ולבדוק.';
         } else {
-          statusBox.textContent = 'לא זוהה קוד QR. נסה להקטין את הלוגו, לשפר ניגודיות או לבחור סגנון קלאסי.';
+          statusBox.textContent = 'לא זוהה קוד QR בבדיקה האוטומטית. הקוד נשאר מוצג; נסה להקטין את הלוגו, לשפר ניגודיות או לסרוק במצלמת הטלפון.';
         }
       } catch (error) {
-        statusBox.textContent = 'בדיקת הסריקה נכשלה בדפדפן זה. מומלץ לבדוק עם מצלמת טלפון לפני שימוש.';
+        statusBox.textContent = 'בדיקת הסריקה נכשלה בדפדפן זה. הקוד נשאר מוצג; מומלץ לבדוק עם מצלמת טלפון לפני שימוש.';
       } finally {
         scanCheckBtn.disabled = false;
       }
