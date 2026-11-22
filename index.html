@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101827">
+  <title>מחולל QR עם לוגו</title>
+  <style>
+    /* הגדרות עיצוב בסיסיות ומראה כהה */
+    :root{color-scheme:dark;--bg:#0b1220;--panel:#121d2e;--line:#26364d;--text:#f4f7fb;--muted:#a8b5c7;--accent:#5b9cff;--accent2:#3479e8}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -10%,#1d3555 0,transparent 42%),var(--bg);color:var(--text);font-family:Arial,"Segoe UI",sans-serif;padding:28px 16px}
+    .wrap{width:min(100%,960px);margin:auto}
+    header{text-align:center;margin:8px 0 28px}
+    .mark{display:inline-grid;place-items:center;width:58px;height:58px;border:1px solid #42618b;border-radius:18px;background:#172943;font-size:29px;margin-bottom:12px}
+    h1{font-size:clamp(26px,5vw,38px);margin:0 0 10px}
+    header p{color:var(--muted);margin:0;font-size:16px}
+    .layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:18px;align-items:start}
+    .panel{background:rgba(18,29,46,.94);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 18px 50px #0003}
+    .field{margin-bottom:18px}
+    label{display:block;font-weight:700;margin-bottom:8px}
+    input[type="text"],input[type="url"]{width:100%;padding:14px 15px;border:1px solid #354861;border-radius:12px;background:#0b1524;color:var(--text);font:inherit;outline:none}
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #5b9cff22}
+    input[type="file"]{width:100%;padding:12px;border:1px dashed #49617e;border-radius:12px;background:#0b1524;color:var(--muted)}
+    .hint{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.5}
+    .options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .color-field{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:#0b1524}
+    .color-field input{width:38px;height:32px;padding:0;border:0;background:transparent}
+    .color-field span{font-size:13px;color:var(--muted)}
+    .range-line{display:flex;align-items:center;gap:12px}
+    input[type="range"]{width:100%;accent-color:var(--accent)}
+    .range-value{min-width:42px;text-align:left;color:var(--muted);font-variant-numeric:tabular-nums}
+    button{border:0;border-radius:12px;padding:14px 18px;font:inherit;font-weight:700;cursor:pointer;transition:.18s}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .primary{width:100%;color:white;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+    .primary:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
+    .download{width:100%;color:#dceaff;background:#203957;border:1px solid #3c5c82;margin-top:12px}
+    .preview{display:flex;flex-direction:column;align-items:center;text-align:center;position:sticky;top:18px}
+    .preview h2{font-size:20px;margin:0 0 6px}
+    .preview p{font-size:13px;color:var(--muted);margin:0 0 18px}
+    .qr-frame{width:min(100%,340px);aspect-ratio:1;background:white;border-radius:16px;padding:14px;display:grid;place-items:center;box-shadow:0 12px 35px #0005}
+    #qrOutput{width:100%;height:100%;display:grid;place-items:center}
+    #qrOutput canvas{display:block;width:100%;height:100%;object-fit:contain}
+    .empty{color:#6b7788;font-size:14px;line-height:1.7;padding:20px}
+    .status{min-height:22px;margin-top:14px;color:#9fc5ff;font-size:13px}
+    .footer{text-align:center;color:#73839a;font-size:12px;margin-top:22px}
+    @media(max-width:760px){body{padding:20px 12px}.layout{grid-template-columns:1fr}.preview{position:static;grid-row:1}.panel{padding:18px}.qr-frame{width:min(78vw,320px)}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="mark" aria-hidden="true">▦</div>
+      <h1>מחולל QR עם לוגו</h1>
+      <p>יוצרים קוד QR מעוצב עם הלוגו שלכם במרכז</p>
+    </header>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="field">
+          <label for="qrText">קישור או טקסט לקוד QR</label>
+          <input id="qrText" type="text" placeholder="https://example.com" autocomplete="url">
+          <div class="hint">אפשר להזין כתובת אתר, מספר טלפון, טקסט או כל מידע אחר.</div>
+        </div>
+
+        <div class="field">
+          <label for="logoFile">לוגו (לא חובה)</label>
+          <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <div class="hint">מומלץ להשתמש בלוגו מרובע ובעל רקע שקוף, בפורמט PNG.</div>
+        </div>
+
+        <div class="field">
+          <label for="logoSize">גודל הלוגו</label>
+          <div class="range-line">
+            <input id="logoSize" type="range" min="10" max="24" value="18">
+            <span class="range-value" id="logoSizeValue">18%</span>
+          </div>
+          <div class="hint">לוגו גדול מדי עלול להקשות על סריקת הקוד. מומלץ להישאר בטווח המוצע.</div>
+        </div>
+
+        <div class="field">
+          <label>צבעים</label>
+          <div class="options">
+            <div class="color-field">
+              <input id="darkColor" type="color" value="#111827" aria-label="צבע הקוד">
+              <span>צבע הקוד</span>
+            </div>
+            <div class="color-field">
+              <input id="lightColor" type="color" value="#ffffff" aria-label="צבע הרקע">
+              <span>צבע הרקע</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="primary" id="generateBtn">יצירת קוד QR</button>
+      </div>
+
+      <aside class="panel preview">
+        <h2>תצוגה מקדימה</h2>
+        <p>הקוד שייווצר יופיע כאן</p>
+        <div class="qr-frame">
+          <div id="qrOutput"><div class="empty">הזן טקסט או קישור<br>ולחץ על יצירת קוד QR</div></div>
+        </div>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+        <button class="download" id="downloadBtn" disabled>הורדת QR כקובץ PNG</button>
+      </aside>
+    </section>
+    <div class="footer">היצירה מתבצעת בדפדפן שלך. הלוגו והטקסט אינם מועלים לשרת.</div>
+  </main>
+
+  <!-- ספריית QRCode.js יוצרת את קוד ה-QR בדפדפן -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    // שמירת תמונת הלוגו שנבחרה בזיכרון הדף בלבד
+    let logoImage = null;
+    // שמירת הקנבס הסופי שממנו יורד קובץ ה-PNG
+    let finalCanvas = null;
+
+    // קבלת רכיבי הממשק לפי המזהים שלהם
+    const qrText = document.getElementById('qrText');
+    const logoFile = document.getElementById('logoFile');
+    const logoSize = document.getElementById('logoSize');
+    const logoSizeValue = document.getElementById('logoSizeValue');
+    const darkColor = document.getElementById('darkColor');
+    const lightColor = document.getElementById('lightColor');
+    const qrOutput = document.getElementById('qrOutput');
+    const statusBox = document.getElementById('status');
+    const generateBtn = document.getElementById('generateBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    // עדכון אחוז גודל הלוגו בזמן גרירת המחוון
+    logoSize.addEventListener('input', () => {
+      logoSizeValue.textContent = logoSize.value + '%';
+    });
+
+    // טעינת הלוגו שנבחר והצגתו רק בתוך הדפדפן
+    logoFile.addEventListener('change', () => {
+      const file = logoFile.files && logoFile.files[0];
+      if (!file) {
+        logoImage = null;
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        statusBox.textContent = 'יש לבחור קובץ תמונה תקין.';
+        logoFile.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          logoImage = image;
+          statusBox.textContent = 'הלוגו נטען. אפשר ליצור את קוד ה-QR.';
+        };
+        image.onerror = () => {
+          logoImage = null;
+          statusBox.textContent = 'לא ניתן לטעון את קובץ הלוגו.';
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // יצירת הקוד ברמת תיקון שגיאות גבוהה כדי לאפשר שילוב לוגו במרכז
+    function createQr() {
+      const value = qrText.value.trim();
+      if (!value) {
+        statusBox.textContent = 'נא להזין קישור או טקסט.';
+        qrText.focus();
+        return;
+      }
+      if (typeof QRCode === 'undefined') {
+        statusBox.textContent = 'לא ניתן לטעון את ספריית יצירת ה-QR. בדוק את החיבור לאינטרנט.';
+        return;
+      }
+
+      // יצירת QR זמני בגודל גבוה לצורך הורדה חדה ואיכותית
+      qrOutput.innerHTML = '';
+      finalCanvas = null;
+      downloadBtn.disabled = true;
+      const temporary = document.createElement('div');
+      temporary.style.cssText = 'position:absolute;left:-99999px;top:0;width:800px;height:800px';
+      document.body.appendChild(temporary);
+
+      try {
+        new QRCode(temporary, {
+          text: value,
+          width: 800,
+          height: 800,
+          colorDark: darkColor.value,
+          colorLight: lightColor.value,
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      } catch (error) {
+        temporary.remove();
+        statusBox.textContent = 'לא ניתן ליצור QR. נסה להזין טקסט קצר יותר.';
+        return;
+      }
+
+      // המתנה לציור הקוד ואז שילוב הלוגו במרכזו
+      setTimeout(() => {
+        const sourceCanvas = temporary.querySelector('canvas');
+        if (!sourceCanvas) {
+          temporary.remove();
+          statusBox.textContent = 'יצירת קוד ה-QR נכשלה.';
+          return;
+        }
+
+        // העתקת הקוד לקנבס הסופי
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 800;
+        const context = canvas.getContext('2d');
+        context.fillStyle = lightColor.value;
+        context.fillRect(0, 0, 800, 800);
+        context.drawImage(sourceCanvas, 0, 0, 800, 800);
+
+        // ציור רקע לבן מעוגל מאחורי הלוגו כדי לשמור על ניגודיות
+        if (logoImage) {
+          const logoWidth = 800 * Number(logoSize.value) / 100;
+          const padding = Math.round(logoWidth * 0.13);
+          const boxSize = logoWidth + padding * 2;
+          const x = (800 - boxSize) / 2;
+          const y = (800 - boxSize) / 2;
+          const radius = Math.round(boxSize * 0.12);
+
+          context.fillStyle = '#ffffff';
+          context.beginPath();
+          context.roundRect(x, y, boxSize, boxSize, radius);
+          context.fill();
+
+          // התאמת הלוגו לריבוע תוך שמירה על יחס הממדים המקורי
+          const innerSize = logoWidth;
+          const scale = Math.min(innerSize / logoImage.width, innerSize / logoImage.height);
+          const drawWidth = logoImage.width * scale;
+          const drawHeight = logoImage.height * scale;
+          context.drawImage(
+            logoImage,
+            (800 - drawWidth) / 2,
+            (800 - drawHeight) / 2,
+            drawWidth,
+            drawHeight
+          );
+        }
+
+        // הצגת הקוד המוגמר והפעלת אפשרות ההורדה
+        finalCanvas = canvas;
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.width = 800;
+        previewCanvas.height = 800;
+        previewCanvas.getContext('2d').drawImage(canvas, 0, 0);
+        qrOutput.appendChild(previewCanvas);
+        temporary.remove();
+        downloadBtn.disabled = false;
+        statusBox.textContent = logoImage ? 'הקוד נוצר בהצלחה עם הלוגו.' : 'הקוד נוצר בהצלחה.';
+      }, 100);
+    }
+
+    // הפעלת יצירת הקוד בלחיצה על הכפתור
+    generateBtn.addEventListener('click', createQr);
+
+    // הפעלת יצירה גם בלחיצה על Enter בשדה הטקסט
+    qrText.addEventListener('keydown', event => {
+      if (event.key === 'Enter') createQr();
+    });
+
+    // הורדת הקוד הסופי כתמונה בפורמט PNG
+    downloadBtn.addEventListener('click', () => {
+      if (!finalCanvas) return;
+      const link = document.createElement('a');
+      link.download = 'qr-with-logo.png';
+      link.href = finalCanvas.toDataURL('image/png');
+      link.click();
+    });
+
+    // יצירה מחדש כאשר משנים את הצבעים לאחר שכבר נוצר קוד
+    [darkColor, lightColor, logoSize].forEach(control => {
+      control.addEventListener('change', () => {
+        if (qrText.value.trim()) createQr();
+      });
+    });
+  </script>
+</body>
+</html>
