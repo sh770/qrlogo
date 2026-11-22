@@ -254,6 +254,27 @@
           <div class="hint">המסגרת ופינות הקוד נכללות גם בקובץ ה-PNG שיורד. התצוגה החיה מתעדכנת לאחר הפסקה קצרה בהקלדה או בשינוי ההגדרות.</div>
         </div>
 
+        <!-- ניהול פרויקטים שמורים במכשיר הנוכחי -->
+        <div class="editor">
+          <h3>שמירת פרויקטים ותבניות אישיות</h3>
+          <div class="field">
+            <label for="projectName">שם הפרויקט</label>
+            <input id="projectName" type="text" placeholder="לדוגמה: כרטיס ביקור / קישור לחנות">
+          </div>
+          <div class="editor-buttons">
+            <button class="primary" id="saveProjectBtn" type="button">שמירת הפרויקט</button>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label for="savedProjects">פרויקטים ותבניות שמורים</label>
+            <select id="savedProjects"><option value="">אין פרויקטים שמורים</option></select>
+          </div>
+          <div class="editor-buttons">
+            <button class="secondary" id="loadProjectBtn" type="button" disabled>טעינת פרויקט</button>
+            <button class="danger" id="deleteProjectBtn" type="button" disabled>מחיקת פרויקט</button>
+          </div>
+          <div class="hint">הפרויקטים נשמרים מקומית בדפדפן ובמכשיר הזה בלבד, כולל הלוגו והגדרות העיצוב. ניקוי נתוני הדפדפן עלול למחוק אותם.</div>
+        </div>
+
         <!-- בחירת רזולוציית הקובץ שיורד למכשיר -->
         <div class="field">
           <label for="exportSize">איכות / רזולוציית קובץ ההורדה</label>
@@ -304,6 +325,8 @@
     // שמירת תמונת הלוגו המקורית והגרסה הערוכה בזיכרון הדף
     let originalLogo = null;
     let editedLogo = null;
+    // שמירת קובץ הלוגו כנתון מקומי כדי לצרף אותו לפרויקט שמור
+    let logoDataUrl = null;
     // שמירת קנבס ה-QR באיכות הדפסה
     let finalCanvas = null;
     // שמירת זווית הסיבוב של הלוגו
@@ -407,6 +430,8 @@
       }
       const reader = new FileReader();
       reader.onload = () => {
+        // שמירת תמונת המקור בפורמט שניתן לשחזור בפרויקט
+        logoDataUrl = String(reader.result || '');
         const image = new Image();
         image.onload = () => {
           originalLogo = image;
@@ -676,6 +701,170 @@
       redoHistory.length=0;
       updateHistoryButtons();
     });
+
+    // מפתח אחסון ייעודי לפרויקטים של המחולל בדפדפן
+    const PROJECTS_STORAGE_KEY = 'qrlogo-saved-projects-v1';
+
+    // רשימת כל ההגדרות שנשמרות ומשוחזרות יחד עם הפרויקט
+    const projectFieldIds = [
+      'qrText','brightness','contrast','bgTolerance','logoSize','logoOpacity',
+      'logoShape','logoBorder','logoBorderColor','darkColor','lightColor',
+      'qrPreset','qrDotStyle','qrCornerStyle','qrCornerDotStyle','qrGradient',
+      'qrGradientColor','qrGradientRotation','qrFrameWidth','qrFrameColor',
+      'qrFrameRadius','livePreview','exportSize'
+    ];
+
+    // קריאת הפרויקטים מהאחסון המקומי תוך הגנה מפני נתונים פגומים
+    function readSavedProjects() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(PROJECTS_STORAGE_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    // רענון רשימת הפרויקטים בתפריט הבחירה
+    function refreshSavedProjects(selectedId = '') {
+      const select = el('savedProjects');
+      const projects = readSavedProjects();
+      select.innerHTML = '';
+      if (!projects.length) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'אין פרויקטים שמורים';
+        select.appendChild(option);
+      } else {
+        projects.sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0)).forEach(project => {
+          const option = document.createElement('option');
+          option.value = project.id;
+          option.textContent = project.name || 'פרויקט ללא שם';
+          select.appendChild(option);
+        });
+        if (selectedId && projects.some(project => project.id === selectedId)) select.value = selectedId;
+      }
+      const hasSelection = Boolean(select.value);
+      el('loadProjectBtn').disabled = !hasSelection;
+      el('deleteProjectBtn').disabled = !hasSelection;
+    }
+
+    // איסוף תוכן הפרויקט כולל כל ההגדרות ותמונת הלוגו המקורית
+    function collectProjectData() {
+      const settings = {};
+      projectFieldIds.forEach(id => { settings[id] = el(id).value; });
+      return {settings,logoDataUrl};
+    }
+
+    // שמירת פרויקט חדש או עדכון פרויקט בעל אותו שם
+    el('saveProjectBtn').addEventListener('click',() => {
+      const name = el('projectName').value.trim();
+      if (!name) {
+        statusBox.textContent = 'נא לתת שם לפרויקט לפני השמירה.';
+        el('projectName').focus();
+        return;
+      }
+      if (!qrText.value.trim()) {
+        statusBox.textContent = 'נא להזין קישור או טקסט לפני שמירת הפרויקט.';
+        qrText.focus();
+        return;
+      }
+      const projects = readSavedProjects();
+      const existing = projects.find(project => project.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+      const project = {
+        id: existing ? existing.id : (Date.now().toString(36) + Math.random().toString(36).slice(2,8)),
+        name,
+        updatedAt: Date.now(),
+        data: collectProjectData()
+      };
+      const next = existing ? projects.map(item => item.id === existing.id ? project : item) : [...projects,project];
+      try {
+        localStorage.setItem(PROJECTS_STORAGE_KEY,JSON.stringify(next));
+        refreshSavedProjects(project.id);
+        statusBox.textContent = existing ? 'הפרויקט עודכן בהצלחה במכשיר.' : 'הפרויקט נשמר בהצלחה במכשיר.';
+      } catch (error) {
+        statusBox.textContent = 'לא ניתן לשמור. ייתכן שאחסון הדפדפן מלא בגלל תמונת לוגו גדולה.';
+      }
+    });
+
+    // שחזור הפרויקט שנבחר, כולל טעינת תמונת הלוגו והגדרות העריכה
+    el('loadProjectBtn').addEventListener('click',() => {
+      const project = readSavedProjects().find(item => item.id === el('savedProjects').value);
+      if (!project || !project.data) return;
+      const settings = project.data.settings || {};
+      projectFieldIds.forEach(id => {
+        if (Object.prototype.hasOwnProperty.call(settings,id)) el(id).value = settings[id];
+      });
+      logoDataUrl = project.data.logoDataUrl || null;
+      originalLogo = null;
+      editedLogo = null;
+      cropRect = null;
+      rotation = 0;
+      backgroundRemoved = false;
+      editHistory.length = 0;
+      redoHistory.length = 0;
+      updateHistoryButtons();
+      el('projectName').value = project.name || '';
+      el('logoFile').value = '';
+      if (logoDataUrl) {
+        const image = new Image();
+        image.onload = () => {
+          originalLogo = image;
+          refreshLogoPreview();
+          el('cropBtn').disabled = false;
+          statusBox.textContent = 'הפרויקט נטען. אפשר להמשיך לערוך וליצור QR.';
+          updateProjectRangeLabels();
+          if (qrText.value.trim()) createQr();
+        };
+        image.onerror = () => {
+          statusBox.textContent = 'ההגדרות נטענו, אך לא ניתן לשחזר את תמונת הלוגו.';
+          el('cropBtn').disabled = true;
+          updateProjectRangeLabels();
+          if (qrText.value.trim()) createQr();
+        };
+        image.src = logoDataUrl;
+      } else {
+        el('cropBtn').disabled = true;
+        el('logoPreview').hidden = true;
+        el('logoStylePreview').hidden = true;
+        el('logoHint').textContent = 'בפרויקט זה לא נשמר לוגו.';
+        updateProjectRangeLabels();
+        statusBox.textContent = 'הפרויקט נטען ללא לוגו.';
+        if (qrText.value.trim()) createQr();
+      }
+    });
+
+    // מחיקת הפרויקט שנבחר לאחר בקשת אישור מהמשתמש
+    el('deleteProjectBtn').addEventListener('click',() => {
+      const id = el('savedProjects').value;
+      if (!id) return;
+      const project = readSavedProjects().find(item => item.id === id);
+      if (!project || !confirm('למחוק את הפרויקט "'+(project.name || '')+'"?')) return;
+      const remaining = readSavedProjects().filter(item => item.id !== id);
+      localStorage.setItem(PROJECTS_STORAGE_KEY,JSON.stringify(remaining));
+      refreshSavedProjects();
+      statusBox.textContent = 'הפרויקט נמחק מהאחסון המקומי.';
+    });
+
+    // עדכון תוויות המחוונים לאחר טעינת פרויקט שמור
+    function updateProjectRangeLabels() {
+      [['brightness','brightnessValue','%'],['contrast','contrastValue','%'],
+       ['logoOpacity','logoOpacityValue','%'],['logoSize','logoSizeValue','%'],
+       ['bgTolerance','bgToleranceValue',''],['qrGradientRotation','qrGradientRotationValue','°'],
+       ['qrFrameWidth','qrFrameWidthValue',''],['qrFrameRadius','qrFrameRadiusValue','%']].forEach(([id,label,suffix]) => {
+        const value = el(id).value;
+        el(label).textContent = id === 'qrFrameWidth' && Number(value) === 0 ? 'ללא' : value + suffix;
+      });
+    }
+
+    // עדכון כפתורי הטעינה והמחיקה כאשר בחירת הפרויקט משתנה
+    el('savedProjects').addEventListener('change',() => {
+      const hasSelection = Boolean(el('savedProjects').value);
+      el('loadProjectBtn').disabled = !hasSelection;
+      el('deleteProjectBtn').disabled = !hasSelection;
+    });
+
+    // הצגת פרויקטים שכבר נשמרו בעת פתיחת המחולל
+    refreshSavedProjects();
 
     // בניית הגדרות העיצוב של קוד ה-QR לפי בחירת המשתמש
     function getQrStyleOptions(size, value) {
