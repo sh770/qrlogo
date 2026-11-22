@@ -169,6 +169,65 @@
             <div class="color-field"><input id="lightColor" type="color" value="#ffffff" aria-label="צבע הרקע"><span>צבע הרקע</span></div>
           </div>
         </div>
+        <!-- הגדרות עיצוב מתקדמות לקוד עצמו -->
+        <div class="editor">
+          <h3>עיצוב קוד ה-QR</h3>
+          <div class="editor-grid">
+            <div class="field">
+              <label for="qrPreset">תבנית עיצוב מוכנה</label>
+              <select id="qrPreset">
+                <option value="custom">עיצוב מותאם אישית</option>
+                <option value="classic">קלאסי</option>
+                <option value="modern">מודרני</option>
+                <option value="soft">רך ומעוגל</option>
+                <option value="elegant">אלגנטי</option>
+                <option value="playful">יצירתי</option>
+                <option value="neon">ניאון</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="qrDotStyle">צורת הנקודות</label>
+              <select id="qrDotStyle">
+                <option value="square">ריבוע</option><option value="rounded">ריבוע מעוגל</option>
+                <option value="extra-rounded">מעוגל מאוד</option><option value="dots">עיגולים</option>
+                <option value="classy">קלאסי מעוצב</option><option value="classy-rounded">קלאסי מעוגל</option>
+                <option value="vertical-line">קווים אנכיים</option><option value="horizontal-line">קווים אופקיים</option>
+                <option value="small-square">ריבועים קטנים</option><option value="diamond">מעוינים</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="qrCornerStyle">צורת הריבועים בפינות</label>
+              <select id="qrCornerStyle">
+                <option value="square">ריבוע</option><option value="dot">עיגול</option>
+                <option value="extra-rounded">מעוגל מאוד</option><option value="rounded">מעוגל</option>
+                <option value="classy">קלאסי</option><option value="outpoint">זוויות חיצוניות</option>
+                <option value="inpoint">זוויות פנימיות</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="qrCornerDotStyle">הנקודה הפנימית בפינות</label>
+              <select id="qrCornerDotStyle">
+                <option value="square">ריבוע</option><option value="dot">עיגול</option>
+                <option value="rounded">מעוגל</option><option value="classy">קלאסי</option>
+                <option value="heart">לב</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="qrGradient">סוג צבע</label>
+              <select id="qrGradient"><option value="none">צבע אחיד</option><option value="linear">מעבר ליניארי</option><option value="radial">מעבר מעגלי</option></select>
+            </div>
+            <div class="field">
+              <label for="qrGradientColor">צבע שני במעבר</label>
+              <div class="color-field"><input id="qrGradientColor" type="color" value="#3479e8"><span>צבע מעבר</span></div>
+            </div>
+            <div class="field">
+              <label for="qrGradientRotation">זווית מעבר הצבע</label>
+              <div class="range-line"><input id="qrGradientRotation" type="range" min="0" max="360" value="45"><span class="range-value" id="qrGradientRotationValue">45°</span></div>
+            </div>
+          </div>
+          <div class="hint">אפשר לבחור צורת נקודות ופינות, או להחיל צבע מעבר. התבניות המוכנות משנות כמה הגדרות יחד וניתנות להתאמה אישית.</div>
+        </div>
+
         <!-- בחירת רזולוציית הקובץ שיורד למכשיר -->
         <div class="field">
           <label for="exportSize">איכות / רזולוציית קובץ ההורדה</label>
@@ -214,7 +273,7 @@
   </section>
 
   <!-- ספריית QRCode.js יוצרת את קוד ה-QR בדפדפן -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.js"></script>
   <script>
     // שמירת תמונת הלוגו המקורית והגרסה הערוכה בזיכרון הדף
     let originalLogo = null;
@@ -592,33 +651,54 @@
       updateHistoryButtons();
     });
 
-    // יצירת QR ברמת תיקון שגיאות גבוהה וברזולוציית הדפסה
-    function createQr() {
+    // בניית הגדרות העיצוב של קוד ה-QR לפי בחירת המשתמש
+    function getQrStyleOptions(size, value) {
+      const gradientMode = el('qrGradient').value;
+      const gradient = gradientMode === 'none' ? null : {
+        type: gradientMode,
+        rotation: Number(el('qrGradientRotation').value) * Math.PI / 180,
+        colorStops: [
+          {offset:0,color:el('darkColor').value},
+          {offset:1,color:el('qrGradientColor').value}
+        ]
+      };
+      const dotsOptions = {type:el('qrDotStyle').value,color:el('darkColor').value};
+      const cornersSquareOptions = {type:el('qrCornerStyle').value,color:el('darkColor').value};
+      const cornersDotOptions = {type:el('qrCornerDotStyle').value,color:el('darkColor').value};
+      if (gradient) {
+        dotsOptions.gradient = gradient;
+        cornersSquareOptions.gradient = gradient;
+        cornersDotOptions.gradient = gradient;
+      }
+      return {
+        width:size,height:size,type:'canvas',data:value,margin:0,
+        qrOptions:{errorCorrectionLevel:'H'},
+        dotsOptions,cornersSquareOptions,cornersDotOptions,
+        backgroundOptions:{color:el('lightColor').value}
+      };
+    }
+
+    // יצירת קוד QR מעוצב ושילוב הלוגו במרכז
+    async function createQr() {
       const value = qrText.value.trim();
       if (!value) { statusBox.textContent = 'נא להזין קישור או טקסט.'; qrText.focus(); return; }
-      if (typeof QRCode === 'undefined') { statusBox.textContent = 'ספריית יצירת ה-QR לא נטענה. בדוק את החיבור לאינטרנט.'; return; }
+      if (typeof QRCodeStyling === 'undefined') { statusBox.textContent = 'ספריית יצירת ה-QR לא נטענה. בדוק את החיבור לאינטרנט.'; return; }
       generateBtn.disabled = true;
-      statusBox.textContent = 'יוצר קוד QR באיכות גבוהה...';
+      statusBox.textContent = 'יוצר קוד QR מעוצב באיכות גבוהה...';
       finalCanvas = null;
       downloadBtn.disabled = true; printBtn.disabled = true; shareBtn.disabled = true;
       qrOutput.innerHTML = '';
-      // יצירת מקור ברזולוציה המרבית כדי לאפשר הורדה בכמה גדלים
       const size = 4000;
       const temporary = document.createElement('div');
       temporary.style.cssText = 'position:fixed;left:-10000px;top:0;width:'+size+'px;height:'+size+'px';
       document.body.appendChild(temporary);
       try {
-        new QRCode(temporary, {text:value,width:size,height:size,colorDark:el('darkColor').value,colorLight:el('lightColor').value,correctLevel:QRCode.CorrectLevel.H});
-      } catch (error) {
-        temporary.remove(); generateBtn.disabled = false; statusBox.textContent = 'לא ניתן ליצור QR. נסה טקסט קצר יותר.'; return;
-      }
-
-      // המתנה לציור הקוד בספרייה לפני שילוב הלוגו
-      setTimeout(() => {
+        // הספרייה מציירת את הנקודות והפינות בקנבס מקומי
+        const styledQr = new QRCodeStyling(getQrStyleOptions(size,value));
+        styledQr.append(temporary);
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         const sourceCanvas = temporary.querySelector('canvas');
-        if (!sourceCanvas) {
-          temporary.remove(); generateBtn.disabled = false; statusBox.textContent = 'יצירת קוד ה-QR נכשלה.'; return;
-        }
+        if (!sourceCanvas) throw new Error('QR canvas was not created');
         const canvas = document.createElement('canvas');
         canvas.width = size; canvas.height = size;
         const context = canvas.getContext('2d');
@@ -661,7 +741,7 @@
           context.restore();
         }
 
-        // שמירת התוצאה ברזולוציית 3000 פיקסלים והצגת תצוגה מוקטנת
+        // שמירת התוצאה באיכות המרבית והצגת תצוגה מוקטנת
         finalCanvas = canvas;
         const preview = document.createElement('canvas');
         preview.width = 900; preview.height = 900;
@@ -671,8 +751,44 @@
         generateBtn.disabled = false;
         downloadBtn.disabled = false; printBtn.disabled = false; shareBtn.disabled = false;
         statusBox.textContent = 'הקוד נוצר בהצלחה. מומלץ לסרוק אותו לפני שימוש או הדפסה.';
-      },150);
+      } catch (error) {
+        temporary.remove();
+        generateBtn.disabled = false;
+        statusBox.textContent = 'יצירת קוד ה-QR נכשלה. נסה שוב או הזן טקסט קצר יותר.';
+      }
     }
+
+    // החלת תבניות עיצוב מוכנות על אפשרויות הקוד
+    const qrPresets = {
+      classic:{dots:'square',corners:'square',cornerDots:'square',gradient:'none',color:'#111827',second:'#3479e8'},
+      modern:{dots:'rounded',corners:'extra-rounded',cornerDots:'dot',gradient:'linear',color:'#173b68',second:'#4c9cff'},
+      soft:{dots:'dots',corners:'dot',cornerDots:'dot',gradient:'linear',color:'#5b6ee1',second:'#b36be8'},
+      elegant:{dots:'classy',corners:'classy',cornerDots:'dot',gradient:'none',color:'#253047',second:'#8b7355'},
+      playful:{dots:'classy-rounded',corners:'rounded',cornerDots:'heart',gradient:'linear',color:'#ef476f',second:'#06a6a6'},
+      neon:{dots:'extra-rounded',corners:'dot',cornerDots:'dot',gradient:'radial',color:'#5428a8',second:'#00d4ff'}
+    };
+    el('qrPreset').addEventListener('change',() => {
+      const preset = qrPresets[el('qrPreset').value];
+      if (!preset) return;
+      el('qrDotStyle').value = preset.dots;
+      el('qrCornerStyle').value = preset.corners;
+      el('qrCornerDotStyle').value = preset.cornerDots;
+      el('qrGradient').value = preset.gradient;
+      el('darkColor').value = preset.color;
+      el('qrGradientColor').value = preset.second;
+      if (qrText.value.trim()) createQr();
+    });
+
+    // עדכון תצוגת הזווית והפקת QR מחדש לאחר שינוי עיצוב
+    el('qrGradientRotation').addEventListener('input',() => {
+      el('qrGradientRotationValue').textContent = el('qrGradientRotation').value+'°';
+    });
+    ['qrDotStyle','qrCornerStyle','qrCornerDotStyle','qrGradient','qrGradientColor','qrGradientRotation','darkColor','lightColor'].forEach(id => {
+      el(id).addEventListener('change',() => {
+        if (id !== 'darkColor' && id !== 'lightColor') el('qrPreset').value = 'custom';
+        if (qrText.value.trim()) createQr();
+      });
+    });
 
     // ביטול תוצאה קודמת כאשר משנים את הטקסט כדי למנוע הורדה של QR ישן
     qrText.addEventListener('input',invalidateQr);
@@ -734,10 +850,8 @@
       }
     });
 
-    // יצירה מחדש לאחר שינוי צבעים או גודל הלוגו
-    ['darkColor','lightColor','logoSize'].forEach(id => {
-      el(id).addEventListener('change',() => { if(qrText.value.trim()) createQr(); });
-    });
+    // יצירה מחדש לאחר שינוי גודל הלוגו
+    el('logoSize').addEventListener('change',() => { if(qrText.value.trim()) createQr(); });
   </script>
 </body>
 </html>
