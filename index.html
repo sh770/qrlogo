@@ -55,6 +55,13 @@
     .crop-handle{position:absolute;width:22px;height:22px;right:-3px;bottom:-3px;background:#fff;border:3px solid #3479e8;border-radius:5px;cursor:nwse-resize;touch-action:none}
     .crop-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0}
     .crop-tools select{width:auto;min-width:150px}
+    .editor-subtitle{font-size:13px;color:var(--muted);margin:18px 0 10px}
+    .history-buttons{display:flex;gap:8px;margin-top:12px}
+    .history-buttons button{flex:1}
+    .style-preview{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+    .style-preview-box{width:74px;height:74px;display:grid;place-items:center;background:repeating-conic-gradient(#26364d 0% 25%,#172437 0% 50%) 50%/14px 14px;border:1px solid #40536c;border-radius:12px}
+    #logoStylePreview{width:52px;height:52px;object-fit:contain}
+    .section-divider{height:1px;background:var(--line);margin:18px 0}
     #logoPreview{width:88px;height:88px;object-fit:contain;background:repeating-conic-gradient(#26364d 0% 25%,#172437 0% 50%) 50%/16px 16px;border:1px solid #40536c;border-radius:12px;padding:5px}
     .preview{display:flex;flex-direction:column;align-items:center;text-align:center}
     .preview h2{font-size:21px;margin:0 0 6px}
@@ -119,6 +126,34 @@
             <button class="secondary" id="removeBgBtn" type="button">הסר רקע מהלוגו</button>
             <button class="secondary" id="rotateBtn" type="button">סיבוב 90°</button>
             <button class="danger" id="resetLogoBtn" type="button">איפוס עריכת לוגו</button>
+          </div>
+          <div class="history-buttons">
+            <button class="secondary" id="undoBtn" type="button" disabled>↶ ביטול פעולה</button>
+            <button class="secondary" id="redoBtn" type="button" disabled>↷ ביצוע מחדש</button>
+          </div>
+          <div class="section-divider"></div>
+          <div class="editor-subtitle">מראה הלוגו בתוך קוד ה-QR</div>
+          <div class="editor-grid">
+            <div class="field">
+              <label for="logoOpacity">שקיפות הלוגו</label>
+              <div class="range-line"><input id="logoOpacity" type="range" min="20" max="100" value="100"><span class="range-value" id="logoOpacityValue">100%</span></div>
+            </div>
+            <div class="field">
+              <label for="logoShape">צורת הלוגו</label>
+              <select id="logoShape"><option value="rounded">ריבוע מעוגל</option><option value="circle">עיגול</option><option value="square">ריבוע</option></select>
+            </div>
+            <div class="field">
+              <label for="logoBorder">מסגרת ללוגו</label>
+              <select id="logoBorder"><option value="0">ללא מסגרת</option><option value="4">דקה</option><option value="10">בינונית</option><option value="18">עבה</option></select>
+            </div>
+            <div class="field">
+              <label for="logoBorderColor">צבע המסגרת</label>
+              <div class="color-field"><input id="logoBorderColor" type="color" value="#ffffff" aria-label="צבע מסגרת הלוגו"><span>צבע המסגרת</span></div>
+            </div>
+          </div>
+          <div class="style-preview">
+            <div class="style-preview-box"><img id="logoStylePreview" alt="תצוגה מקדימה של צורת הלוגו" hidden></div>
+            <div class="hint">התצוגה ממחישה את צורת הלוגו והשקיפות. המסגרת תוצג בקוד הסופי.</div>
           </div>
           <div class="logo-preview-wrap">
             <img id="logoPreview" alt="תצוגה מקדימה של הלוגו" hidden>
@@ -195,6 +230,10 @@
     // שמירת מצב מסגרת החיתוך בחלון העריכה
     let cropSelectionRect = null;
     let cropDrag = null;
+    // שמירת היסטוריית העריכות כדי לאפשר ביטול וביצוע מחדש
+    const editHistory = [];
+    const redoHistory = [];
+    const historyLimit = 30;
 
     // איתור רכיבי הממשק
     const el = id => document.getElementById(id);
@@ -208,6 +247,64 @@
     const shareBtn = el('shareBtn');
     const logoPreview = el('logoPreview');
     const exportSize = el('exportSize');
+
+    // איסוף מצב העריכה הנוכחי לצורך שמירת נקודת שחזור
+    function getEditorState() {
+      return {
+        rotation, backgroundRemoved,
+        cropRect: cropRect ? {...cropRect} : null,
+        brightness: el('brightness').value,
+        contrast: el('contrast').value,
+        bgTolerance: el('bgTolerance').value,
+        logoOpacity: el('logoOpacity').value,
+        logoShape: el('logoShape').value,
+        logoBorder: el('logoBorder').value,
+        logoBorderColor: el('logoBorderColor').value
+      };
+    }
+
+    // שחזור מצב עריכה קודם ועדכון הממשק
+    function restoreEditorState(state) {
+      rotation = state.rotation;
+      backgroundRemoved = state.backgroundRemoved;
+      cropRect = state.cropRect ? {...state.cropRect} : null;
+      ['brightness','contrast','bgTolerance','logoOpacity','logoShape','logoBorder','logoBorderColor'].forEach(id => { el(id).value = state[id]; });
+      ['brightness','contrast','logoOpacity'].forEach(id => { el(id+'Value').textContent = el(id).value+'%'; });
+      el('bgToleranceValue').textContent = el('bgTolerance').value;
+      refreshLogoPreview();
+      updateHistoryButtons();
+    }
+
+    // שמירת המצב הנוכחי לפני פעולה חדשה
+    function saveHistory() {
+      if (!originalLogo) return;
+      editHistory.push(getEditorState());
+      if (editHistory.length > historyLimit) editHistory.shift();
+      redoHistory.length = 0;
+      updateHistoryButtons();
+    }
+
+    // עדכון מצב הכפתורים בהתאם להיסטוריה
+    function updateHistoryButtons() {
+      el('undoBtn').disabled = editHistory.length === 0;
+      el('redoBtn').disabled = redoHistory.length === 0;
+    }
+
+    // ביטול הפעולה האחרונה
+    el('undoBtn').addEventListener('click', () => {
+      if (!editHistory.length) return;
+      redoHistory.push(getEditorState());
+      restoreEditorState(editHistory.pop());
+      statusBox.textContent = 'הפעולה האחרונה בוטלה.';
+    });
+
+    // ביצוע מחדש של פעולה שבוטלה
+    el('redoBtn').addEventListener('click', () => {
+      if (!redoHistory.length) return;
+      editHistory.push(getEditorState());
+      restoreEditorState(redoHistory.pop());
+      statusBox.textContent = 'הפעולה בוצעה מחדש.';
+    });
 
     // עדכון תוויות המחוונים בזמן שינוי
     [['bgTolerance','bgToleranceValue',''],['brightness','brightnessValue','%'],['contrast','contrastValue','%'],['logoSize','logoSizeValue','%']].forEach(([input,label,suffix]) => {
@@ -302,6 +399,9 @@
       editedLogo = buildEditedLogo();
       logoPreview.src = editedLogo.toDataURL('image/png');
       logoPreview.hidden = false;
+      el('logoStylePreview').src = editedLogo.toDataURL('image/png');
+      el('logoStylePreview').hidden = false;
+      el('logoStylePreview').style.opacity = Number(el('logoOpacity').value)/100;
       el('logoHint').textContent = 'תצוגה מקדימה של הלוגו לאחר העריכה.';
       invalidateQr();
     }
@@ -320,6 +420,7 @@
     // הפעלת הסרת הרקע ועדכון התצוגה
     el('removeBgBtn').addEventListener('click', () => {
       if (!originalLogo) { statusBox.textContent = 'יש לבחור לוגו לפני הסרת הרקע.'; return; }
+      saveHistory();
       backgroundRemoved = true;
       refreshLogoPreview();
       statusBox.textContent = 'בוצעה הסרת רקע. ניתן לכוון את העוצמה במחוון.';
@@ -328,6 +429,7 @@
     // סיבוב הלוגו בכל לחיצה ברבע סיבוב
     el('rotateBtn').addEventListener('click', () => {
       if (!originalLogo) { statusBox.textContent = 'יש לבחור לוגו לפני הסיבוב.'; return; }
+      saveHistory();
       rotation = (rotation + 90) % 360;
       refreshLogoPreview();
     });
@@ -335,9 +437,15 @@
     // איפוס כל פעולות העריכה וחזרה לתמונה המקורית
     el('resetLogoBtn').addEventListener('click', () => {
       if (!originalLogo) return;
+      saveHistory();
       rotation = 0;
       backgroundRemoved = false;
       cropRect = null;
+      el('logoOpacity').value = 100;
+      el('logoOpacityValue').textContent = '100%';
+      el('logoShape').value = 'rounded';
+      el('logoBorder').value = 0;
+      el('logoBorderColor').value = '#ffffff';
       el('brightness').value = 100;
       el('contrast').value = 100;
       el('bgTolerance').value = 42;
@@ -348,8 +456,28 @@
     });
 
     // רענון תצוגת הלוגו בעת שינוי בהירות, ניגודיות או עוצמת הסרת הרקע
-    ['brightness','contrast','bgTolerance'].forEach(id => {
-      el(id).addEventListener('input', () => { if (originalLogo) refreshLogoPreview(); });
+    ['brightness','contrast','bgTolerance','logoOpacity'].forEach(id => {
+      // שמירת מצב לפני תחילת שינוי במחוון
+      el(id).addEventListener('pointerdown',saveHistory);
+      el(id).addEventListener('keydown',event => { if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)) saveHistory(); });
+      el(id).addEventListener('input', () => {
+        el(id+'Value').textContent = el(id).value+'%';
+        if (originalLogo) refreshLogoPreview();
+      });
+    });
+
+    // שמירת היסטוריה לפני שינוי צורת הלוגו או המסגרת
+    ['logoShape','logoBorder','logoBorderColor'].forEach(id => {
+      el(id).addEventListener('focus',() => { el(id).dataset.previous = JSON.stringify(getEditorState()); });
+      el(id).addEventListener('change',() => {
+        if (el(id).dataset.previous) {
+          editHistory.push(JSON.parse(el(id).dataset.previous));
+          if (editHistory.length > historyLimit) editHistory.shift();
+          redoHistory.length=0;
+          updateHistoryButtons();
+        }
+        refreshLogoPreview();
+      });
     });
 
     // פתיחת חלון החיתוך והצגת התמונה המקורית
@@ -442,6 +570,7 @@
       const y = Math.max(0,Math.min(originalLogo.height-1,Math.round(r.y*sy)));
       const width = Math.max(1,Math.min(originalLogo.width-x,Math.round(r.w*sx)));
       const height = Math.max(1,Math.min(originalLogo.height-y,Math.round(r.h*sy)));
+      saveHistory();
       cropRect = {x,y,width,height};
       el('cropModal').hidden = true;
       refreshLogoPreview();
@@ -450,6 +579,13 @@
 
     // סגירת חלון החיתוך ללא שמירת שינויים
     el('cancelCropBtn').addEventListener('click',() => { el('cropModal').hidden=true; });
+
+    // איפוס היסטוריית העריכה בעת טעינת לוגו חדש
+    logoFile.addEventListener('change',() => {
+      editHistory.length=0;
+      redoHistory.length=0;
+      updateHistoryButtons();
+    });
 
     // יצירת QR ברמת תיקון שגיאות גבוהה וברזולוציית הדפסה
     function createQr() {
@@ -493,14 +629,31 @@
           const boxSize = logoWidth + padding * 2;
           const x = (size-boxSize)/2;
           const y = (size-boxSize)/2;
-          context.fillStyle = '#ffffff';
+          // ציור רקע הלוגו בהתאם לצורה ולמסגרת שהמשתמש בחר
+          const shape = el('logoShape').value;
+          const border = Number(el('logoBorder').value);
+          const borderColor = el('logoBorderColor').value;
+          context.save();
+          context.fillStyle = borderColor;
           context.beginPath();
-          context.roundRect(x,y,boxSize,boxSize,boxSize*0.12);
+          if (shape === 'circle') context.arc(size/2,size/2,boxSize/2,0,Math.PI*2);
+          else if (shape === 'square') context.rect(x,y,boxSize,boxSize);
+          else context.roundRect(x,y,boxSize,boxSize,boxSize*0.12);
           context.fill();
+          // יצירת מסכת חיתוך פנימית כדי לשמור על צורת הלוגו
+          const inset = border;
+          const innerSize = boxSize - inset*2;
+          context.beginPath();
+          if (shape === 'circle') context.arc(size/2,size/2,Math.max(1,innerSize/2),0,Math.PI*2);
+          else if (shape === 'square') context.rect(x+inset,y+inset,innerSize,innerSize);
+          else context.roundRect(x+inset,y+inset,innerSize,innerSize,Math.max(1,boxSize*0.12-inset));
+          context.clip();
           const scale = Math.min(logoWidth/logo.width,logoWidth/logo.height);
           const drawWidth = logo.width*scale;
           const drawHeight = logo.height*scale;
+          context.globalAlpha = Number(el('logoOpacity').value)/100;
           context.drawImage(logo,(size-drawWidth)/2,(size-drawHeight)/2,drawWidth,drawHeight);
+          context.restore();
         }
 
         // שמירת התוצאה ברזולוציית 3000 פיקסלים והצגת תצוגה מוקטנת
