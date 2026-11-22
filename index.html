@@ -1356,8 +1356,9 @@
 
     // ניקוי תווים אסורים משמות קובצי התמונות
     function safeBulkFilename(value,index) {
-      const cleaned = String(value || '').normalize('NFKC').replace(/[\\/:*?"<>|\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^[-.]+|[-.]+$/g,'').slice(0,70);
-      return (cleaned || 'qr-' + String(index).padStart(3,'0')) + '.png';
+      const cleaned = String(value || '').normalize('NFKC').replace(/[\\/:*?"<>|\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^[-.]+|[-.]+$/g,'').slice(0,60);
+      const base = cleaned || 'qr';
+      return base + '-' + String(index).padStart(3,'0') + '.png';
     }
 
     // יצירת תמונת QR לכל שורה ואריזת כל התמונות בקובץ ZIP
