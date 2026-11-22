@@ -45,6 +45,16 @@
     .editor-buttons{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
     .editor-buttons button{flex:1}
     .logo-preview-wrap{display:flex;align-items:center;gap:14px;margin-top:14px}
+    .crop-modal{position:fixed;inset:0;z-index:20;background:#050b14ed;display:grid;place-items:center;padding:16px}
+    .crop-modal[hidden]{display:none}
+    .crop-card{width:min(100%,720px);max-height:95vh;overflow:auto;background:#121d2e;border:1px solid #40536c;border-radius:18px;padding:18px;box-shadow:0 20px 70px #0009}
+    .crop-card h3{margin:0 0 8px}.crop-stage-wrap{display:grid;place-items:center;background:#080f1b;border:1px solid #354861;border-radius:12px;padding:10px;min-height:180px;overflow:hidden}
+    .crop-stage{position:relative;display:inline-block;max-width:100%;touch-action:none;user-select:none;line-height:0}
+    #cropImage{display:block;max-width:100%;max-height:55vh;width:auto;height:auto;pointer-events:none}
+    .crop-selection{position:absolute;border:2px solid #65a5ff;background:#5b9cff22;box-shadow:0 0 0 9999px #0008;cursor:move;touch-action:none}
+    .crop-handle{position:absolute;width:22px;height:22px;right:-3px;bottom:-3px;background:#fff;border:3px solid #3479e8;border-radius:5px;cursor:nwse-resize;touch-action:none}
+    .crop-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0}
+    .crop-tools select{width:auto;min-width:150px}
     #logoPreview{width:88px;height:88px;object-fit:contain;background:repeating-conic-gradient(#26364d 0% 25%,#172437 0% 50%) 50%/16px 16px;border:1px solid #40536c;border-radius:12px;padding:5px}
     .preview{display:flex;flex-direction:column;align-items:center;text-align:center}
     .preview h2{font-size:21px;margin:0 0 6px}
@@ -114,6 +124,7 @@
             <img id="logoPreview" alt="תצוגה מקדימה של הלוגו" hidden>
             <div class="hint" id="logoHint">לא נבחר לוגו עדיין. לאחר בחירת תמונה יוצגו כאן כלי העריכה.</div>
           </div>
+          <div class="editor-buttons"><button class="secondary" id="cropBtn" type="button" disabled>חיתוך הלוגו</button></div>
         </div>
 
         <div class="field" style="margin-top:18px">
@@ -156,6 +167,17 @@
     <div class="footer">הטקסט, התמונה והעריכה מתבצעים בדפדפן שלך. הקבצים אינם מועלים לשרת.<br>הסרת רקע אוטומטית עובדת בצורה הטובה ביותר כאשר הרקע המקורי אחיד.</div>
   </main>
 
+  <!-- חלון חיתוך הלוגו מאפשר לבחור אזור בתמונה לפני שילובה בקוד -->
+  <section class="crop-modal" id="cropModal" hidden aria-modal="true" role="dialog" aria-labelledby="cropTitle">
+    <div class="crop-card">
+      <h3 id="cropTitle">חיתוך הלוגו</h3>
+      <p class="hint">גרור על התמונה כדי לסמן אזור חדש. אפשר לגרור את המסגרת להזזה או את הידית שבפינה לשינוי הגודל.</p>
+      <div class="crop-tools"><label for="cropRatio">צורת החיתוך</label><select id="cropRatio"><option value="free">חיתוך חופשי</option><option value="square">ריבוע</option></select></div>
+      <div class="crop-stage-wrap"><div class="crop-stage" id="cropStage"><img id="cropImage" alt="התמונה לחיתוך"><div class="crop-selection" id="cropSelection"><span class="crop-handle"></span></div></div></div>
+      <div class="editor-buttons"><button class="primary" id="applyCropBtn" type="button">אישור החיתוך</button><button class="secondary" id="cancelCropBtn" type="button">ביטול</button></div>
+    </div>
+  </section>
+
   <!-- ספריית QRCode.js יוצרת את קוד ה-QR בדפדפן -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
@@ -168,6 +190,11 @@
     let rotation = 0;
     // שמירת מצב הסרת הרקע
     let backgroundRemoved = false;
+    // שמירת אזור החיתוך בקואורדינטות של התמונה המקורית
+    let cropRect = null;
+    // שמירת מצב מסגרת החיתוך בחלון העריכה
+    let cropSelectionRect = null;
+    let cropDrag = null;
 
     // איתור רכיבי הממשק
     const el = id => document.getElementById(id);
@@ -201,6 +228,8 @@
         const image = new Image();
         image.onload = () => {
           originalLogo = image;
+          cropRect = null;
+          el('cropBtn').disabled = false;
           rotation = 0;
           backgroundRemoved = false;
           refreshLogoPreview();
@@ -217,13 +246,15 @@
       if (!originalLogo) return null;
       const source = document.createElement('canvas');
       const maxSide = 1400;
-      const scale = Math.min(1, maxSide / Math.max(originalLogo.width, originalLogo.height));
-      const width = Math.max(1, Math.round(originalLogo.width * scale));
-      const height = Math.max(1, Math.round(originalLogo.height * scale));
+      // שימוש באזור החיתוך אם המשתמש בחר אחד, אחרת שימוש בתמונה כולה
+      const crop = cropRect || {x:0,y:0,width:originalLogo.width,height:originalLogo.height};
+      const scale = Math.min(1, maxSide / Math.max(crop.width, crop.height));
+      const width = Math.max(1, Math.round(crop.width * scale));
+      const height = Math.max(1, Math.round(crop.height * scale));
       source.width = width;
       source.height = height;
       const sourceContext = source.getContext('2d', {willReadFrequently:true});
-      sourceContext.drawImage(originalLogo, 0, 0, width, height);
+      sourceContext.drawImage(originalLogo, crop.x, crop.y, crop.width, crop.height, 0, 0, width, height);
 
       // הסרת רקע לפי צבע ממוצע מארבע פינות התמונה
       if (backgroundRemoved) {
@@ -306,6 +337,7 @@
       if (!originalLogo) return;
       rotation = 0;
       backgroundRemoved = false;
+      cropRect = null;
       el('brightness').value = 100;
       el('contrast').value = 100;
       el('bgTolerance').value = 42;
@@ -319,6 +351,105 @@
     ['brightness','contrast','bgTolerance'].forEach(id => {
       el(id).addEventListener('input', () => { if (originalLogo) refreshLogoPreview(); });
     });
+
+    // פתיחת חלון החיתוך והצגת התמונה המקורית
+    el('cropBtn').addEventListener('click', () => {
+      if (!originalLogo) return;
+      el('cropImage').src = originalLogo.src;
+      el('cropModal').hidden = false;
+      requestAnimationFrame(() => {
+        const image = el('cropImage');
+        const stage = el('cropStage');
+        const inset = Math.min(stage.clientWidth, stage.clientHeight) * 0.08;
+        cropSelectionRect = cropRect ? {
+          x: cropRect.x / originalLogo.width * image.clientWidth,
+          y: cropRect.y / originalLogo.height * image.clientHeight,
+          w: cropRect.width / originalLogo.width * image.clientWidth,
+          h: cropRect.height / originalLogo.height * image.clientHeight
+        } : {x:inset,y:inset,w:Math.max(20,image.clientWidth-inset*2),h:Math.max(20,image.clientHeight-inset*2)};
+        updateCropSelection();
+      });
+    });
+
+    // הצגת מסגרת החיתוך במיקום ובגודל הנוכחיים
+    function updateCropSelection() {
+      const selection = el('cropSelection');
+      if (!cropSelectionRect) return;
+      selection.style.left = cropSelectionRect.x + 'px';
+      selection.style.top = cropSelectionRect.y + 'px';
+      selection.style.width = cropSelectionRect.w + 'px';
+      selection.style.height = cropSelectionRect.h + 'px';
+    }
+
+    // טיפול בגרירה ליצירת אזור חיתוך, להזזתו או לשינוי גודלו
+    el('cropStage').addEventListener('pointerdown', event => {
+      const stage = el('cropStage');
+      const bounds = stage.getBoundingClientRect();
+      const x = Math.max(0,Math.min(bounds.width,event.clientX-bounds.left));
+      const y = Math.max(0,Math.min(bounds.height,event.clientY-bounds.top));
+      const selection = el('cropSelection');
+      const handle = event.target.classList.contains('crop-handle');
+      const inside = event.target === selection;
+      if (handle) cropDrag = {mode:'resize',startX:x,startY:y,initial:{...cropSelectionRect}};
+      else if (inside) cropDrag = {mode:'move',startX:x,startY:y,initial:{...cropSelectionRect}};
+      else {
+        cropSelectionRect = {x,y,w:1,h:1};
+        cropDrag = {mode:'draw',startX:x,startY:y,initial:{...cropSelectionRect}};
+      }
+      stage.setPointerCapture(event.pointerId);
+      updateCropSelection();
+      event.preventDefault();
+    });
+
+    // עדכון המסגרת בזמן גרירת העכבר או האצבע
+    el('cropStage').addEventListener('pointermove', event => {
+      if (!cropDrag) return;
+      const bounds = el('cropStage').getBoundingClientRect();
+      const x = Math.max(0,Math.min(bounds.width,event.clientX-bounds.left));
+      const y = Math.max(0,Math.min(bounds.height,event.clientY-bounds.top));
+      const dx = x-cropDrag.startX, dy = y-cropDrag.startY;
+      const imageWidth = el('cropImage').clientWidth;
+      const imageHeight = el('cropImage').clientHeight;
+      const start = cropDrag.initial;
+      if (cropDrag.mode === 'move') {
+        cropSelectionRect.x = Math.max(0,Math.min(imageWidth-start.w,start.x+dx));
+        cropSelectionRect.y = Math.max(0,Math.min(imageHeight-start.h,start.y+dy));
+      } else if (cropDrag.mode === 'resize') {
+        let w = Math.max(20,Math.min(imageWidth-start.x,start.w+dx));
+        let h = Math.max(20,Math.min(imageHeight-start.y,start.h+dy));
+        if (el('cropRatio').value === 'square') { const side = Math.min(w,h); w=side; h=side; }
+        cropSelectionRect.w=w; cropSelectionRect.h=h;
+      } else {
+        let left = Math.min(cropDrag.startX,x), top = Math.min(cropDrag.startY,y);
+        let w = Math.abs(dx), h = Math.abs(dy);
+        if (el('cropRatio').value === 'square') { const side=Math.min(w,h); w=side; h=side; left=dx<0?cropDrag.startX-side:cropDrag.startX; top=dy<0?cropDrag.startY-side:cropDrag.startY; }
+        cropSelectionRect = {x:left,y:top,w:Math.max(1,w),h:Math.max(1,h)};
+      }
+      updateCropSelection();
+    });
+
+    // סיום פעולת הגרירה
+    ['pointerup','pointercancel'].forEach(type => el('cropStage').addEventListener(type,() => { cropDrag=null; }));
+
+    // המרת בחירת החיתוך מגודל התצוגה לגודל התמונה המקורית ושמירתה
+    el('applyCropBtn').addEventListener('click', () => {
+      if (!originalLogo || !cropSelectionRect) return;
+      const image = el('cropImage');
+      const sx = originalLogo.width / image.clientWidth;
+      const sy = originalLogo.height / image.clientHeight;
+      const r = cropSelectionRect;
+      const x = Math.max(0,Math.min(originalLogo.width-1,Math.round(r.x*sx)));
+      const y = Math.max(0,Math.min(originalLogo.height-1,Math.round(r.y*sy)));
+      const width = Math.max(1,Math.min(originalLogo.width-x,Math.round(r.w*sx)));
+      const height = Math.max(1,Math.min(originalLogo.height-y,Math.round(r.h*sy)));
+      cropRect = {x,y,width,height};
+      el('cropModal').hidden = true;
+      refreshLogoPreview();
+      statusBox.textContent = 'החיתוך נשמר. אפשר להמשיך לערוך את הלוגו.';
+    });
+
+    // סגירת חלון החיתוך ללא שמירת שינויים
+    el('cancelCropBtn').addEventListener('click',() => { el('cropModal').hidden=true; });
 
     // יצירת QR ברמת תיקון שגיאות גבוהה וברזולוציית הדפסה
     function createQr() {
