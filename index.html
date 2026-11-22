@@ -62,6 +62,8 @@
     .style-preview-box{width:74px;height:74px;display:grid;place-items:center;background:repeating-conic-gradient(#26364d 0% 25%,#172437 0% 50%) 50%/14px 14px;border:1px solid #40536c;border-radius:12px}
     #logoStylePreview{width:52px;height:52px;object-fit:contain}
     .section-divider{height:1px;background:var(--line);margin:18px 0}
+    .qr-frame{overflow:hidden;transition:border-radius .15s,border-color .15s}
+    #qrOutput{overflow:hidden;border-radius:inherit}
     #logoPreview{width:88px;height:88px;object-fit:contain;background:repeating-conic-gradient(#26364d 0% 25%,#172437 0% 50%) 50%/16px 16px;border:1px solid #40536c;border-radius:12px;padding:5px}
     .preview{display:flex;flex-direction:column;align-items:center;text-align:center}
     .preview h2{font-size:21px;margin:0 0 6px}
@@ -226,6 +228,30 @@
             </div>
           </div>
           <div class="hint">אפשר לבחור צורת נקודות ופינות, או להחיל צבע מעבר. התבניות המוכנות משנות כמה הגדרות יחד וניתנות להתאמה אישית.</div>
+        </div>
+
+        <!-- הגדרות מסגרת ותצוגה חיה לקוד ה-QR -->
+        <div class="editor">
+          <h3>מסגרת ותצוגה מקדימה</h3>
+          <div class="editor-grid">
+            <div class="field">
+              <label for="qrFrameWidth">עובי מסגרת חיצונית</label>
+              <div class="range-line"><input id="qrFrameWidth" type="range" min="0" max="36" value="0"><span class="range-value" id="qrFrameWidthValue">ללא</span></div>
+            </div>
+            <div class="field">
+              <label for="qrFrameColor">צבע המסגרת</label>
+              <div class="color-field"><input id="qrFrameColor" type="color" value="#3479e8"><span>צבע המסגרת</span></div>
+            </div>
+            <div class="field">
+              <label for="qrFrameRadius">עיגול פינות הקוד</label>
+              <div class="range-line"><input id="qrFrameRadius" type="range" min="0" max="18" value="0"><span class="range-value" id="qrFrameRadiusValue">0%</span></div>
+            </div>
+            <div class="field">
+              <label for="livePreview">תצוגה מקדימה בזמן אמת</label>
+              <select id="livePreview"><option value="on" selected>פעילה</option><option value="off">כבויה</option></select>
+            </div>
+          </div>
+          <div class="hint">המסגרת ופינות הקוד נכללות גם בקובץ ה-PNG שיורד. התצוגה החיה מתעדכנת לאחר הפסקה קצרה בהקלדה או בשינוי ההגדרות.</div>
         </div>
 
         <!-- בחירת רזולוציית הקובץ שיורד למכשיר -->
@@ -741,6 +767,29 @@
           context.restore();
         }
 
+        // הוספת מסגרת חיצונית ופינות מעוגלות גם לקובץ הסופי
+        const frameWidth = Number(el('qrFrameWidth').value);
+        const frameRadius = Number(el('qrFrameRadius').value);
+        if (frameWidth > 0) {
+          context.save();
+          context.strokeStyle = el('qrFrameColor').value;
+          context.lineWidth = Math.max(2, size * frameWidth / 1000);
+          context.strokeRect(context.lineWidth/2, context.lineWidth/2, size-context.lineWidth, size-context.lineWidth);
+          context.restore();
+        }
+        if (frameRadius > 0) {
+          const radius = size * frameRadius / 100;
+          const rounded = document.createElement('canvas');
+          rounded.width = size; rounded.height = size;
+          const roundedContext = rounded.getContext('2d');
+          roundedContext.beginPath();
+          roundedContext.roundRect(0,0,size,size,radius);
+          roundedContext.clip();
+          roundedContext.drawImage(canvas,0,0);
+          context.clearRect(0,0,size,size);
+          context.drawImage(rounded,0,0);
+        }
+
         // שמירת התוצאה באיכות המרבית והצגת תצוגה מוקטנת
         finalCanvas = canvas;
         const preview = document.createElement('canvas');
@@ -850,8 +899,37 @@
       }
     });
 
+    // עדכון תוויות מסגרת ופינות בזמן גרירת המחוונים
+    el('qrFrameWidth').addEventListener('input',() => {
+      el('qrFrameWidthValue').textContent = Number(el('qrFrameWidth').value) === 0 ? 'ללא' : el('qrFrameWidth').value;
+    });
+    el('qrFrameRadius').addEventListener('input',() => {
+      el('qrFrameRadiusValue').textContent = el('qrFrameRadius').value+'%';
+    });
+
+    // תזמון יצירה אוטומטית כדי לא ליצור QR מחדש בכל הקשה
+    let livePreviewTimer = null;
+    function scheduleLivePreview() {
+      if (el('livePreview').value !== 'on' || !qrText.value.trim()) return;
+      clearTimeout(livePreviewTimer);
+      livePreviewTimer = setTimeout(() => createQr(),650);
+    }
+
+    // הפעלת תצוגה חיה גם לאחר שינויי עיצוב ומסגרת
+    ['qrFrameWidth','qrFrameColor','qrFrameRadius'].forEach(id => {
+      el(id).addEventListener('input',scheduleLivePreview);
+      el(id).addEventListener('change',scheduleLivePreview);
+    });
+    el('livePreview').addEventListener('change',() => {
+      if (el('livePreview').value === 'on') scheduleLivePreview();
+    });
+    qrText.addEventListener('input',scheduleLivePreview);
+
     // יצירה מחדש לאחר שינוי גודל הלוגו
     el('logoSize').addEventListener('change',() => { if(qrText.value.trim()) createQr(); });
+    ['logoOpacity','logoShape','logoBorder','logoBorderColor'].forEach(id => {
+      el(id).addEventListener('change',() => { if(qrText.value.trim()) scheduleLivePreview(); });
+    });
   </script>
 </body>
 </html>
