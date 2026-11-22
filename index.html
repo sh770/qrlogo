@@ -76,6 +76,13 @@
     .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:min(100%,560px);margin-top:12px}
     .actions button{width:100%;font-size:14px}
     .footer{text-align:center;color:#73839a;font-size:12px;margin-top:22px;line-height:1.6}
+    /* אזור יצירה מרובה מקובץ CSV */
+    .bulk-preview{max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:10px;background:#0b1524;font-size:13px;line-height:1.7}
+    .bulk-preview ol{margin:0;padding-right:22px}
+    .bulk-meta{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:8px 0}
+    .bulk-progress{height:9px;border-radius:20px;background:#26364d;overflow:hidden;margin:12px 0}
+    .bulk-progress>span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#48d6bd);transition:width .15s}
+
     @media(max-width:600px){body{padding:18px 10px}.panel{padding:16px}.editor-grid{grid-template-columns:1fr}.actions{grid-template-columns:1fr}.options{gap:8px}.logo-preview-wrap{align-items:flex-start}}
   </style>
 </head>
@@ -288,6 +295,26 @@
           </select>
           <div class="hint" id="exportHint">הקובץ יורד כ-PNG ברזולוציה שנבחרה. PNG הוא פורמט ללא איבוד איכות.</div>
         </div>
+        <!-- יצירת קודי QR רבים מקובץ CSV מקומי -->
+        <div class="editor">
+          <h3>יצירת QR בכמות גדולה</h3>
+          <div class="field">
+            <label for="bulkCsvFile">בחירת קובץ CSV</label>
+            <input id="bulkCsvFile" type="file" accept=".csv,text/csv">
+            <div class="hint">יש לייצא Excel כקובץ CSV בקידוד UTF-8. כל שורה תייצר קוד QR נפרד. הקובץ נשאר במכשיר.</div>
+          </div>
+          <div class="editor-grid">
+            <div class="field"><label for="bulkValueColumn">עמודת התוכן לקוד QR</label><select id="bulkValueColumn" disabled><option value="">טען קובץ CSV תחילה</option></select></div>
+            <div class="field"><label for="bulkNameColumn">עמודה לשם הקובץ (רשות)</label><select id="bulkNameColumn" disabled><option value="">ללא — מספר שורה</option></select></div>
+          </div>
+          <div class="field"><label><input id="bulkHasHeader" type="checkbox" checked style="width:auto;accent-color:var(--accent)"> השורה הראשונה מכילה כותרות</label></div>
+          <div class="bulk-meta" id="bulkMeta">עדיין לא נטען קובץ.</div>
+          <div class="bulk-preview" id="bulkPreview">לאחר בחירת קובץ תוצג כאן דוגמית מהנתונים.</div>
+          <div class="bulk-progress" id="bulkProgress" hidden><span id="bulkProgressBar"></span></div>
+          <button class="primary" id="bulkGenerateBtn" type="button" disabled>יצירת כל הקודים והורדת ZIP</button>
+          <div class="hint" id="bulkStatus" role="status" aria-live="polite">הקודים ייווצרו בעיצוב הנוכחי, ללא שילוב הלוגו המרכזי.</div>
+        </div>
+        <div class="section-divider"></div>
         <button class="primary" id="generateBtn" type="button">יצירת קוד QR</button>
       </section>
 
@@ -323,6 +350,7 @@
 
   <!-- ספריית QRCode.js יוצרת את קוד ה-QR בדפדפן -->
   <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0/lib/qr-code-styling.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script>
     // שמירת תמונת הלוגו המקורית והגרסה הערוכה בזיכרון הדף
     let originalLogo = null;
@@ -1227,6 +1255,168 @@
     ['logoOpacity','logoShape','logoBorder','logoBorderColor'].forEach(id => {
       el(id).addEventListener('change',() => { if(qrText.value.trim()) scheduleLivePreview(); });
     });
+
+    // שמירת נתוני ה-CSV שנטענו לצורך יצירה מרובה
+    let bulkRows = [];
+    let bulkHeaders = [];
+    let bulkDelimiter = ',';
+
+    // פענוח CSV תוך תמיכה במרכאות, מפרידים בתוך תא ושורות מצוטטות
+    function parseCsv(text, delimiter) {
+      const rows = []; let row = []; let cell = ''; let quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (char === '"') quoted = !quoted;
+        else if (char === delimiter && !quoted) { row.push(cell); cell = ''; }
+        else if ((char === '\n' || char === '\r') && !quoted) {
+          if (char === '\r' && text[i + 1] === '\n') i++;
+          row.push(cell); cell = '';
+          if (row.some(value => value.trim() !== '')) rows.push(row);
+          row = [];
+        } else cell += char;
+      }
+      row.push(cell);
+      if (row.some(value => value.trim() !== '')) rows.push(row);
+      return rows;
+    }
+
+    // זיהוי מפריד CSV נפוץ לפי מספר המופעים בשורה הראשונה
+    function detectCsvDelimiter(text) {
+      const firstLine = text.split(/\r?\n/, 1)[0] || '';
+      return [',',';','\t'].sort((a,b) => firstLine.split(b).length - firstLine.split(a).length)[0];
+    }
+
+    // טעינת קובץ CSV, חילוץ הכותרות והצגת דוגמית
+    async function loadBulkCsv(file) {
+      const status = el('bulkStatus');
+      try {
+        const text = (await file.text()).replace(/^\uFEFF/, '');
+        bulkDelimiter = detectCsvDelimiter(text);
+        const parsed = parseCsv(text, bulkDelimiter);
+        if (!parsed.length) throw new Error('הקובץ ריק');
+        const hasHeader = el('bulkHasHeader').checked;
+        const width = Math.max(...parsed.map(row => row.length));
+        bulkHeaders = hasHeader
+          ? Array.from({length:width},(_,i) => (parsed[0][i] || '').trim() || 'עמודה ' + (i+1))
+          : Array.from({length:width},(_,i) => 'עמודה ' + (i+1));
+        bulkRows = hasHeader ? parsed.slice(1) : parsed;
+        if (!bulkRows.length) throw new Error('לא נמצאו שורות נתונים');
+        fillBulkColumnSelects();
+        renderBulkPreview();
+        el('bulkMeta').textContent = bulkRows.length + ' שורות נתונים · ' + width + ' עמודות';
+        status.textContent = 'הקובץ נטען בהצלחה. בחר את עמודת התוכן לקוד.';
+        el('bulkGenerateBtn').disabled = false;
+      } catch (error) {
+        bulkRows = [];
+        el('bulkGenerateBtn').disabled = true;
+        el('bulkMeta').textContent = 'לא ניתן לטעון את הקובץ.';
+        el('bulkPreview').textContent = error.message;
+        status.textContent = 'טעינת CSV נכשלה. בדוק שהקובץ תקין ובקידוד UTF-8.';
+      }
+    }
+
+    // בניית תפריטי בחירת עמודת תוכן ועמודת שם קובץ
+    function fillBulkColumnSelects() {
+      const valueSelect = el('bulkValueColumn');
+      const nameSelect = el('bulkNameColumn');
+      valueSelect.innerHTML = '';
+      nameSelect.innerHTML = '<option value="">ללא — מספר שורה</option>';
+      bulkHeaders.forEach((header,index) => {
+        const option = document.createElement('option');
+        option.value = String(index); option.textContent = header;
+        valueSelect.appendChild(option); nameSelect.appendChild(option.cloneNode(true));
+      });
+      valueSelect.disabled = false; nameSelect.disabled = false;
+      valueSelect.value = '0'; nameSelect.value = '';
+    }
+
+    // הצגת עשר שורות ראשונות כדי לוודא בחירה נכונה של העמודות
+    function renderBulkPreview() {
+      if (!bulkRows.length) return;
+      const valueIndex = Number(el('bulkValueColumn').value || 0);
+      const nameValue = el('bulkNameColumn').value;
+      const nameIndex = nameValue === '' ? -1 : Number(nameValue);
+      const list = document.createElement('ol');
+      bulkRows.slice(0,10).forEach(row => {
+        const item = document.createElement('li');
+        const name = nameIndex >= 0 ? (row[nameIndex] || '').trim() : '';
+        const value = (row[valueIndex] || '').trim();
+        item.textContent = (name ? name + ' — ' : '') + (value || '(שורה ריקה בעמודת התוכן)');
+        list.appendChild(item);
+      });
+      const preview = el('bulkPreview');
+      preview.replaceChildren(list);
+      if (bulkRows.length > 10) {
+        const more = document.createElement('div'); more.className = 'hint';
+        more.textContent = 'מוצגות 10 מתוך ' + bulkRows.length + ' שורות.';
+        preview.appendChild(more);
+      }
+    }
+
+    // ניקוי תווים אסורים משמות קובצי התמונות
+    function safeBulkFilename(value,index) {
+      const cleaned = String(value || '').normalize('NFKC').replace(/[\\/:*?"<>|\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^[-.]+|[-.]+$/g,'').slice(0,70);
+      return (cleaned || 'qr-' + String(index).padStart(3,'0')) + '.png';
+    }
+
+    // יצירת תמונת QR לכל שורה ואריזת כל התמונות בקובץ ZIP
+    async function generateBulkQr() {
+      const status = el('bulkStatus'); const button = el('bulkGenerateBtn');
+      if (!bulkRows.length) return;
+      if (typeof QRCodeStyling === 'undefined' || typeof JSZip === 'undefined') {
+        status.textContent = 'ספריות היצירה לא נטענו. בדוק את החיבור לאינטרנט ונסה שוב.'; return;
+      }
+      const valueIndex = Number(el('bulkValueColumn').value);
+      const nameIndex = el('bulkNameColumn').value === '' ? -1 : Number(el('bulkNameColumn').value);
+      const entries = bulkRows.map((row,index) => ({
+        value:(row[valueIndex] || '').trim(),
+        name:nameIndex >= 0 ? (row[nameIndex] || '').trim() : '',
+        index
+      })).filter(item => item.value);
+      if (!entries.length) { status.textContent = 'לא נמצאו ערכים בעמודה שנבחרה.'; return; }
+      button.disabled = true; el('bulkProgress').hidden = false;
+      el('bulkProgressBar').style.width = '0%';
+      status.textContent = 'מתחיל ליצור ' + entries.length + ' קודי QR...';
+      try {
+        const zip = new JSZip();
+        for (let i = 0; i < entries.length; i++) {
+          const item = entries[i];
+          const options = getQrStyleOptions(1000,item.value); options.type = 'canvas';
+          const qr = new QRCodeStyling(options);
+          const blob = await qr.getRawData('png');
+          if (!blob) throw new Error('לא התקבלה תמונת PNG בשורה ' + (item.index + 1));
+          zip.file(safeBulkFilename(item.name,item.index + 1),blob);
+          el('bulkProgressBar').style.width = Math.round((i + 1) / entries.length * 100) + '%';
+          status.textContent = 'נוצרו ' + (i + 1) + ' מתוך ' + entries.length + ' קודים...';
+          if (i % 5 === 0) await new Promise(resolve => setTimeout(resolve,0));
+        }
+        status.textContent = 'אורז את התמונות לקובץ ZIP...';
+        const archive = await zip.generateAsync({type:'blob'},metadata => {
+          el('bulkProgressBar').style.width = Math.round(metadata.percent) + '%';
+        });
+        const url = URL.createObjectURL(archive);
+        const link = document.createElement('a'); link.href = url;
+        link.download = 'qr-codes-' + entries.length + '.zip'; link.click();
+        setTimeout(() => URL.revokeObjectURL(url),3000);
+        status.textContent = 'הסתיים! נוצרו ' + entries.length + ' קודי QR ונשמרו בקובץ ZIP.';
+      } catch (error) {
+        status.textContent = 'יצירת הקודים נכשלה. נסה קובץ קטן יותר או בדוק את הנתונים.';
+      } finally { button.disabled = false; }
+    }
+
+    // חיבור אירועי טעינת הקובץ, שינוי העמודות והפעלת היצירה המרובה
+    el('bulkCsvFile').addEventListener('change',event => {
+      const file = event.target.files && event.target.files[0];
+      if (file) loadBulkCsv(file);
+    });
+    el('bulkHasHeader').addEventListener('change',() => {
+      const file = el('bulkCsvFile').files && el('bulkCsvFile').files[0];
+      if (file) loadBulkCsv(file);
+    });
+    ['bulkValueColumn','bulkNameColumn'].forEach(id => el(id).addEventListener('change',renderBulkPreview));
+    el('bulkGenerateBtn').addEventListener('click',generateBulkQr);
+
   </script>
 </body>
 </html>
