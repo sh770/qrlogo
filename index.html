@@ -301,6 +301,8 @@
           <button class="secondary" id="downloadBtn" disabled type="button">הורדת PNG באיכות שנבחרה</button>
           <button class="secondary" id="printBtn" disabled type="button">הורדת PNG להדפסה</button>
           <button class="secondary" id="shareBtn" disabled type="button">שיתוף QR</button>
+          <button class="secondary" id="svgBtn" disabled type="button">הורדת SVG</button>
+          <button class="secondary" id="scanCheckBtn" disabled type="button">בדיקת סריקה</button>
         </div>
         <div class="hint">כפתור ההורדה הראשון משתמש ברזולוציה שבחרת. כפתור ההדפסה מוריד תמיד קובץ 3000×3000 פיקסלים. מומלץ לסרוק את הקוד לפני הדפסה.</div>
       </aside>
@@ -353,6 +355,9 @@
     const downloadBtn = el('downloadBtn');
     const printBtn = el('printBtn');
     const shareBtn = el('shareBtn');
+    // כפתורים לייצוא SVG ולבדיקת יכולת הסריקה
+    const svgBtn = el('svgBtn');
+    const scanCheckBtn = el('scanCheckBtn');
     const logoPreview = el('logoPreview');
     const exportSize = el('exportSize');
 
@@ -528,6 +533,8 @@
         downloadBtn.disabled = true;
         printBtn.disabled = true;
         shareBtn.disabled = true;
+        svgBtn.disabled = true;
+        scanCheckBtn.disabled = true;
         statusBox.textContent = 'ההגדרות השתנו. יש ליצור מחדש את קוד ה-QR.';
       }
     }
@@ -902,7 +909,7 @@
       generateBtn.disabled = true;
       statusBox.textContent = 'יוצר קוד QR מעוצב באיכות גבוהה...';
       finalCanvas = null;
-      downloadBtn.disabled = true; printBtn.disabled = true; shareBtn.disabled = true;
+      downloadBtn.disabled = true; printBtn.disabled = true; shareBtn.disabled = true; svgBtn.disabled = true; scanCheckBtn.disabled = true;
       qrOutput.innerHTML = '';
       const size = 4000;
       const temporary = document.createElement('div');
@@ -988,7 +995,7 @@
         qrOutput.appendChild(preview);
         temporary.remove();
         generateBtn.disabled = false;
-        downloadBtn.disabled = false; printBtn.disabled = false; shareBtn.disabled = false;
+        downloadBtn.disabled = false; printBtn.disabled = false; shareBtn.disabled = false; svgBtn.disabled = false; scanCheckBtn.disabled = false;
         statusBox.textContent = 'הקוד נוצר בהצלחה. מומלץ לסרוק אותו לפני שימוש או הדפסה.';
       } catch (error) {
         temporary.remove();
@@ -1054,6 +1061,106 @@
       context.drawImage(finalCanvas,0,0,size,size);
       return output;
     }
+
+    // יצירת קובץ SVG וקטורי לקוד, כאשר אזור הלוגו מוטמע כתמונה מקומית
+    svgBtn.addEventListener('click',async () => {
+      if (!finalCanvas) return;
+      svgBtn.disabled = true;
+      statusBox.textContent = 'מכין קובץ SVG...';
+      try {
+        const size = 4000;
+        const vectorOptions = getQrStyleOptions(size,qrText.value.trim());
+        vectorOptions.type = 'svg';
+        const vectorQr = new QRCodeStyling(vectorOptions);
+        const svgBlob = await vectorQr.getRawData('svg');
+        if (!svgBlob) throw new Error('SVG export unavailable');
+        const parsed = new DOMParser().parseFromString(await svgBlob.text(),'image/svg+xml');
+        const svg = parsed.documentElement;
+        if (parsed.querySelector('parsererror')) throw new Error('Invalid SVG');
+        svg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+        svg.setAttribute('viewBox','0 0 '+size+' '+size);
+        svg.setAttribute('width',String(size));
+        svg.setAttribute('height',String(size));
+        // חיתוך אזור המרכז מהתוצאה הסופית כדי לשמר את הלוגו והשטח הלבן סביבו
+        if (originalLogo) {
+          const center = size * 0.34;
+          const patch = document.createElement('canvas');
+          patch.width = Math.round(center);
+          patch.height = Math.round(center);
+          patch.getContext('2d').drawImage(finalCanvas,(size-center)/2,(size-center)/2,center,center,0,0,patch.width,patch.height);
+          const overlay = document.createElementNS('http://www.w3.org/2000/svg','image');
+          overlay.setAttribute('x',String((size-center)/2));
+          overlay.setAttribute('y',String((size-center)/2));
+          overlay.setAttribute('width',String(center));
+          overlay.setAttribute('height',String(center));
+          overlay.setAttribute('href',patch.toDataURL('image/png'));
+          overlay.setAttribute('preserveAspectRatio','none');
+          svg.appendChild(overlay);
+        }
+        // הוספת המסגרת החיצונית שנבחרה גם ל-SVG
+        const frameWidth = Number(el('qrFrameWidth').value);
+        if (frameWidth > 0) {
+          const frame = document.createElementNS('http://www.w3.org/2000/svg','rect');
+          const stroke = Math.max(2,size*frameWidth/1000);
+          frame.setAttribute('x',String(stroke/2));
+          frame.setAttribute('y',String(stroke/2));
+          frame.setAttribute('width',String(size-stroke));
+          frame.setAttribute('height',String(size-stroke));
+          frame.setAttribute('fill','none');
+          frame.setAttribute('stroke',el('qrFrameColor').value);
+          frame.setAttribute('stroke-width',String(stroke));
+          svg.appendChild(frame);
+        }
+        // הורדת מסמך SVG עצמאי ללא תלות בקובץ חיצוני
+        const serialized = new XMLSerializer().serializeToString(svg);
+        const blob = new Blob([serialized],{type:'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'qr-logo-vector.svg';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url),1500);
+        statusBox.textContent = originalLogo
+          ? 'קובץ SVG נשמר. קוד ה-QR וקטורי ואזור הלוגו מוטמע כתמונה.'
+          : 'קובץ SVG וקטורי נשמר בהצלחה.';
+      } catch (error) {
+        statusBox.textContent = 'לא ניתן לייצא SVG בדפדפן זה. אפשר להוריד PNG באיכות גבוהה.';
+      } finally {
+        svgBtn.disabled = false;
+      }
+    });
+
+    // בדיקת סריקה אוטומטית מול הטקסט המקורי באמצעות מנוע הדפדפן
+    scanCheckBtn.addEventListener('click',async () => {
+      if (!finalCanvas) return;
+      scanCheckBtn.disabled = true;
+      statusBox.textContent = 'בודק אם הדפדפן מצליח לזהות את קוד ה-QR...';
+      try {
+        if (!('BarcodeDetector' in window)) {
+          statusBox.textContent = 'הדפדפן אינו תומך בבדיקת סריקה אוטומטית. מומלץ לסרוק עם מצלמת טלפון.';
+          return;
+        }
+        const supported = await BarcodeDetector.getSupportedFormats();
+        if (!supported.includes('qr_code')) {
+          statusBox.textContent = 'מנוע הסריקה בדפדפן אינו תומך בקודי QR. מומלץ לבדוק עם מצלמת טלפון.';
+          return;
+        }
+        const detector = new BarcodeDetector({formats:['qr_code']});
+        const results = await detector.detect(finalCanvas);
+        const expected = qrText.value.trim();
+        if (results.some(result => result.rawValue === expected)) {
+          statusBox.textContent = 'מצוין! הקוד נסרק בהצלחה והתוכן תואם בדיוק לקלט.';
+        } else if (results.length) {
+          statusBox.textContent = 'קוד QR זוהה, אך התוכן אינו תואם לקלט. מומלץ ליצור מחדש ולבדוק.';
+        } else {
+          statusBox.textContent = 'לא זוהה קוד QR. נסה להקטין את הלוגו, לשפר ניגודיות או לבחור סגנון קלאסי.';
+        }
+      } catch (error) {
+        statusBox.textContent = 'בדיקת הסריקה נכשלה בדפדפן זה. מומלץ לבדוק עם מצלמת טלפון לפני שימוש.';
+      } finally {
+        scanCheckBtn.disabled = false;
+      }
+    });
 
     // הורדת PNG ברזולוציה שהמשתמש בחר בתפריט
     downloadBtn.addEventListener('click',() => {
